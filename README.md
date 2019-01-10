@@ -19,7 +19,7 @@ The following information is gathered by the tool:
 - Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
 - Users and their attributes;
 - Service Principal Names (SPNs);
-- Groups and memberships;
+- Groups, memberships and changes;
 - Organizational Units (OUs);
 - GroupPolicy objects and gPLink details;
 - DNS Zones and Records;
