@@ -1,5 +1,7 @@
 # ADRecon: Active Directory Recon [![Follow ADRecon on Twitter](https://img.shields.io/twitter/follow/ad_recon.svg?style=social&label=Follow%20%40ad_recon)](https://twitter.com/intent/user?screen_name=ad_recon "Follow ADRecon on Twitter")
 
+This [repo](https://github.com/adrecon/ADRecon) contains updates to the original [concept and code](https://github.com/sense-of-security/adrecon) by Prashant Mahajan (@prashant3535) while working at [Sense of Security](https://senseofsecurity.com.au).
+
 ADRecon is a tool which extracts and combines various artefacts (as highlighted below) out of an AD environment. The information can be presented in a specially formatted Microsoft Excel report that includes summary views with metrics to facilitate analysis and provide a holistic picture of the current state of the target AD environment.
 
 The tool is useful to various classes of security professionals like auditors, DFIR, students, administrators, etc. It can also be an invaluable post-exploitation tool for a penetration tester.
@@ -57,13 +59,13 @@ These instructions will get you a copy of the tool up and running on your local 
 
 ### Installing
 
-If you have git installed, you can start by cloning the [repository](https://github.com/sense-of-security/ADRecon/):
+If you have git installed, you can start by cloning the [repository](https://github.com/adrecon/ADRecon/):
 
 ```
-git clone https://github.com/sense-of-security/ADRecon.git
+git clone https://github.com/adrecon/ADRecon.git
 ```
 
-Otherwise, you can [download a zip archive of the latest release](https://github.com/sense-of-security/ADRecon/archive/master.zip). The intent is to always keep the master branch in a working state.
+Otherwise, you can [download a zip archive of the latest release](https://github.com/adrecon/ADRecon/archive/master.zip). The intent is to always keep the master branch in a working state.
 
 ## Usage
 
@@ -156,7 +158,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 ### Bugs, Issues and Feature Requests
 
-Please report all bugs, issues and feature requests in the [issue tracker](https://github.com/sense-of-security/ADRecon/issues). Or let me (@prashant3535) know directly.
+Please report all bugs, issues and feature requests in the [issue tracker](https://github.com/adrecon/ADRecon/issues). Or let me (@prashant3535) know directly.
 
 ### Contributing
 
@@ -169,8 +171,6 @@ Thanks for the awesome work by @_wald0, @CptJesus, @harmj0y, @mattifestation, @P
 ### License
 
 ADRecon is a tool which gathers information about the Active Directory and generates a report which can provide a holistic picture of the current state of the target AD environment.
-
-Copyright (C) Sense of Security
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
