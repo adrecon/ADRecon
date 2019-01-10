@@ -21,7 +21,7 @@
     - Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
     - Users and their attributes;
     - Service Principal Names (SPNs);
-    - Groups and memberships;
+    - Groups, memberships and changes;
     - Organizational Units (OUs);
     - Group Policy Object and gPLink details;
     - DNS Zones and Records;
@@ -77,7 +77,7 @@
 
 .PARAMETER Collect
     Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast, DomainAccountsusedforServiceLogon)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, GPOs, gPLinks, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, GroupChanges, OUs, GPOs, gPLinks, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon.
 
 .PARAMETER OutputType
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -235,8 +235,8 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast, DomainAccountsusedforServiceLogon) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, GPOs, gPLinks, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon")]
-    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupMembers', 'OUs', 'GPOs', 'gPLinks', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'ACLs', 'GPOReport', 'Kerberoast', 'DomainAccountsusedforServiceLogon', 'Default')]
+    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast, DomainAccountsusedforServiceLogon) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, GroupChanges, OUs, GPOs, gPLinks, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon")]
+    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupMembers', 'GroupChanges', 'OUs', 'GPOs', 'gPLinks', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'ACLs', 'GPOReport', 'Kerberoast', 'DomainAccountsusedforServiceLogon', 'Default')]
     [array] $Collect = 'Default',
 
     [Parameter(Mandatory = $false, HelpMessage = "Output type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel)")]
@@ -269,6 +269,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml;
 using System.Threading;
 using System.DirectoryServices;
 using System.Security.Principal;
@@ -386,6 +387,13 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] GroupChangeParser(Object[] AdGroups, DateTime Date1, int numOfThreads)
+        {
+            ADWSClass.Date1 = Date1;
+            Object[] ADRObj = runProcessor(AdGroups, numOfThreads, "GroupChanges");
+            return ADRObj;
+        }
+
         public static Object[] OUParser(Object[] AdOUs, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(AdOUs, numOfThreads, "OUs");
@@ -497,6 +505,8 @@ namespace ADRecon
                     return new GroupRecordDictionaryProcessor();
                 case "GroupMembers":
                     return new GroupMemberRecordProcessor();
+                case "GroupChanges":
+                    return new GroupChangeRecordProcessor();
                 case "OUs":
                     return new OURecordProcessor();
                 case "GPOs":
@@ -1077,6 +1087,80 @@ namespace ADRecon
                         // TO DO
                     }
                     return GroupsList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class GroupChangeRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdGroup = (PSObject) record;
+                    String Action = null;
+                    List<PSObject> GroupChangesList = new List<PSObject>();
+
+                    Microsoft.ActiveDirectory.Management.ADPropertyValueCollection ReplValueMetaData = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdGroup.Members["msDS-ReplValueMetaData"].Value;
+
+                    if (ReplValueMetaData.Value != null)
+                    {
+                        if (ReplValueMetaData.Value is System.String[])
+                        {
+                            foreach (String ReplData in (System.String[])ReplValueMetaData.Value)
+                            {
+                                XmlDocument ReplXML = new XmlDocument();
+                                ReplXML.LoadXml(ReplData.Replace("\x00", ""));
+                                
+                                if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
+                                {
+                                    Action = "Removed";
+                                }
+                                else
+                                {
+                                    Action = "Added";
+                                }
+
+                                PSObject GroupChangeObj = new PSObject();
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Group Name", AdGroup.Members["SamAccountName"].Value));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Group DistinguishedName", CleanString(AdGroup.Members["DistinguishedName"].Value)));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Member DistinguishedName", CleanString(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["pszObjectDn"].InnerText)));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Action", Action));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeCreated", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeDeleted", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText));
+                                GroupChangesList.Add( GroupChangeObj );
+                            }
+                        }
+                        else
+                        {
+                                XmlDocument ReplXML = new XmlDocument();
+                                ReplXML.LoadXml((Convert.ToString(ReplValueMetaData.Value)).Replace("\x00", ""));
+
+                                if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
+                                {
+                                    Action = "Removed";
+                                }
+                                else
+                                {
+                                    Action = "Added";
+                                }
+                                
+                                PSObject GroupChangeObj = new PSObject();
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Group Name", AdGroup.Members["SamAccountName"].Value));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Group DistinguishedName", CleanString(AdGroup.Members["DistinguishedName"].Value)));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Member DistinguishedName", CleanString(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["pszObjectDn"].InnerText)));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Action", Action));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeCreated", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeDeleted", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText));
+                                GroupChangesList.Add( GroupChangeObj );
+                        }
+                    }
+                    return GroupChangesList.ToArray();
                 }
                 catch (Exception e)
                 {
@@ -1707,6 +1791,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml;
 using System.Net;
 using System.Threading;
 using System.DirectoryServices;
@@ -1850,6 +1935,13 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] GroupChangeParser(Object[] AdGroups, DateTime Date1, int numOfThreads)
+        {
+            LDAPClass.Date1 = Date1;
+            Object[] ADRObj = runProcessor(AdGroups, numOfThreads, "GroupChanges");
+            return ADRObj;
+        }
+
         public static Object[] OUParser(Object[] AdOUs, int numOfThreads)
         {
             Object[] ADRObj = runProcessor(AdOUs, numOfThreads, "OUs");
@@ -1961,6 +2053,8 @@ namespace ADRecon
                     return new GroupRecordDictionaryProcessor();
                 case "GroupMembers":
                     return new GroupMemberRecordProcessor();
+                case "GroupChanges":
+                    return new GroupChangeRecordProcessor();
                 case "OUs":
                     return new OURecordProcessor();
                 case "GPOs":
@@ -2532,6 +2626,54 @@ namespace ADRecon
                         // TO DO
                     }
                     return GroupsList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class GroupChangeRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdGroup = (SearchResult) record;
+                    String Action = null;
+                    List<PSObject> GroupChangesList = new List<PSObject>();
+
+                    System.DirectoryServices.ResultPropertyValueCollection ReplValueMetaData = (System.DirectoryServices.ResultPropertyValueCollection) AdGroup.Properties["msDS-ReplValueMetaData"];
+
+                    if (ReplValueMetaData.Count != 0)
+                    {
+                        foreach (String ReplData in ReplValueMetaData)
+                        {
+                            XmlDocument ReplXML = new XmlDocument();
+                            ReplXML.LoadXml(ReplData.Replace("\x00", ""));
+
+                            if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
+                            {
+                                Action = "Removed";
+                            }
+                            else
+                            {
+                                Action = "Added";
+                            }
+
+                            PSObject GroupChangeObj = new PSObject();
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Group Name", AdGroup.Properties["samaccountname"][0]));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Group DistinguishedName", CleanString(AdGroup.Properties["distinguishedname"][0])));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Member DistinguishedName", CleanString(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["pszObjectDn"].InnerText)));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Action", Action));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("ftimeCreated", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("ftimeDeleted", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText));
+                            GroupChangesList.Add( GroupChangeObj );
+                        }
+                    }                    
+                    return GroupChangesList.ToArray();
                 }
                 catch (Exception e)
                 {
@@ -4927,6 +5069,16 @@ Function Export-ADRExcel
             Get-ADRExcelWorkbook -Name "Domain Controllers"
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
+        }
+
+        $ADFileName = -join($ReportPath,'\','GroupChanges.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook -Name "Group Changes"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
+
+            Get-ADRExcelSort -ColumnName "Group Name"
         }
 
         $ADFileName = -join($ReportPath,'\','DACLs.csv')
@@ -7837,6 +7989,114 @@ Function Get-ADRGroupMember
     If ($GroupMemberObj)
     {
         Return $GroupMemberObj
+    }
+    Else
+    {
+        Return $null
+    }
+}
+
+Function Get-ADRGroupChange
+{
+<#
+.SYNOPSIS
+    Returns all changes in groupmemberships in the current (or specified) domain.
+
+.DESCRIPTION
+    Returns all changes in groupmemberships in the current (or specified) domain.
+
+.PARAMETER Protocol
+    [string]
+    Which protocol to use; ADWS (default) or LDAP.
+
+.PARAMETER date
+    [DateTime]
+    Date when ADRecon was executed.
+
+.PARAMETER objDomain
+    [DirectoryServices.DirectoryEntry]
+    Domain Directory Entry object.
+
+.PARAMETER PageSize
+    [int]
+    The PageSize to set for the LDAP searcher object. Default 200.
+
+.PARAMETER Threads
+    [int]
+    The number of threads to use during processing of objects. Default 10.
+
+.OUTPUTS
+    PSObject.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Protocol,
+
+        [Parameter(Mandatory = $true)]
+        [DateTime] $date,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomain,
+
+        [Parameter(Mandatory = $true)]
+        [int] $PageSize,
+
+        [Parameter(Mandatory = $false)]
+        [int] $Threads = 10
+    )
+
+    If ($Protocol -eq 'ADWS')
+    {
+        Try
+        {
+            $ADGroups = @( Get-ADObject -LDAPFilter ("objectClass=group") -Properties DistinguishedName,SamAccountName,'msDS-ReplValueMetaData' )
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRGroupChange] Error while enumerating Group Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        If ($ADGroups)
+        {
+            Write-Verbose "[*] Total Groups: $([ADRecon.ADWSClass]::ObjectCount($ADGroups))"
+            $ADGroupChangesObj = [ADRecon.ADWSClass]::GroupChangeParser($ADGroups, $date, $Threads)
+            Remove-Variable ADGroups
+        }
+    }
+
+    If ($Protocol -eq 'LDAP')
+    {
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
+        $ObjSearcher.PageSize = $PageSize
+        $ObjSearcher.Filter = "(objectClass=group)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname", "samaccountname", "msDS-ReplValueMetaData"))
+        $ObjSearcher.SearchScope = "Subtree"
+
+        Try
+        {
+            $ADGroups = $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRGroupChange] Error while enumerating Group Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        If ($ADGroups)
+        {
+            Write-Verbose "[*] Total Groups: $([ADRecon.LDAPClass]::ObjectCount($ADGroups))"
+            $ADGroupChangesObj = [ADRecon.LDAPClass]::GroupChangeParser($ADGroups, $date, $Threads)
+            Remove-Variable ADGroups
+        }
+    }
+
+    If ($ADGroupChangesObj)
+    {
+        Return $ADGroupChangesObj
     }
     Else
     {
@@ -11147,7 +11407,7 @@ Function Invoke-ADRecon
 
 .PARAMETER Collect
     [array]
-    Which modules to run; Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, GPOs, gPLinks, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon.
+    Which modules to run; Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, GroupChanges, OUs, GPOs, gPLinks, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon.
 
 .PARAMETER DomainController
     [string]
@@ -11223,7 +11483,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v1.1"
+    [string] $ADReconVersion = "v1.2"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535)"
 
     If ($GenExcel)
@@ -11342,11 +11602,11 @@ Function Invoke-ADRecon
         {
             If ($CLR -eq "4")
             {
-                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location))
+                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location))
             }
             Else
             {
-                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location)) -Language CSharpVersion3
+                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location)) -Language CSharpVersion3
             }
         }
 
@@ -11354,11 +11614,11 @@ Function Invoke-ADRecon
         {
             If ($CLR -eq "4")
             {
-                Add-Type -TypeDefinition $LDAPSource -ReferencedAssemblies ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location
+                Add-Type -TypeDefinition $LDAPSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location))
             }
             Else
             {
-                Add-Type -TypeDefinition $LDAPSource -ReferencedAssemblies ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location -Language CSharpVersion3
+                Add-Type -TypeDefinition $LDAPSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location)) -Language CSharpVersion3
             }
         }
     }
@@ -11433,6 +11693,7 @@ Function Invoke-ADRecon
         'PasswordAttributes' { $ADRPasswordAttributes = $true }
         'Groups' { $ADRGroups = $true }
         'GroupMembers' { $ADRGroupMembers = $true }
+        'GroupChanges' { $ADRGroupChanges = $true }
         'OUs' { $ADROUs = $true }
         'GPOs' { $ADRGPOs = $true }
         'gPLinks' { $ADRgPLinks = $true }
@@ -11465,6 +11726,7 @@ Function Invoke-ADRecon
             $ADRPasswordAttributes = $true
             $ADRGroups = $true
             $ADRGroupMembers = $true
+            $ADRGroupChanges = $true
             $ADROUs = $true
             $ADRGPOs = $true
             $ADRgPLinks = $true
@@ -11853,6 +12115,18 @@ Function Invoke-ADRecon
             Remove-Variable ADRObject
         }
         Remove-Variable ADRGroupMembers
+    }
+    If ($ADRGroupChanges)
+    {
+        Write-Output "[-] Group Changes - May take some time"
+
+        $ADRObject = Get-ADRGroupChange -Protocol $Protocol -Date $date -objDomain $objDomain -PageSize $PageSize -Threads $Threads
+        If ($ADRObject)
+        {
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "GroupChanges"
+            Remove-Variable ADRObject
+        }
+        Remove-Variable ADRGroupChanges
     }
     If ($ADROUs)
     {
