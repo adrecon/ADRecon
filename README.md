@@ -15,6 +15,7 @@ The following information is gathered by the tool:
 - Trusts;
 - Sites;
 - Subnets;
+- Schema History;
 - Default and Fine Grained Password Policy (if implemented);
 - Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
 - Users and their attributes;
@@ -123,7 +124,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -Collect <String>
     Which modules to run (Comma separated; e.g Forest,Domain. Default all except Kerberoast)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast DomainAccountsusedforServiceLogon.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast DomainAccountsusedforServiceLogon.
 
 -OutputType <String>
     Output Type; Comma seperated; e.g CSV,STDOUT,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -166,7 +167,7 @@ Pull request are always welcome.
 
 ### Mad props
 
-Thanks for the awesome work by @_wald0, @CptJesus, @harmj0y, @mattifestation, @PyroTek3, @darkoperator, the Sense of Security Team and others.
+Thanks for the awesome work by @_wald0, @CptJesus, @harmj0y, @mattifestation, @PyroTek3, @darkoperator, @ITsecurityAU Team, @CTXIS Team and others.
 
 ### License
 

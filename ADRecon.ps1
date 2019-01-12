@@ -17,6 +17,7 @@
     - Trusts;
     - Sites;
     - Subnets;
+    - Schema History;
     - Default and Fine Grained Password Policy (if implemented);
     - Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
     - Users and their attributes;
@@ -77,7 +78,7 @@
 
 .PARAMETER Collect
     Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast, DomainAccountsusedforServiceLogon)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, GroupChanges, OUs, GPOs, gPLinks, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, GPOs, gPLinks, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon.
 
 .PARAMETER OutputType
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -140,13 +141,14 @@
     [-] Trusts
     [-] Sites
     [-] Subnets
+    [-] SchemaHistory - May take some time
     [-] Default Password Policy
     [-] Fine Grained Password Policy - May need a Privileged Account
     [-] Domain Controllers
     [-] Users - May take some time
     [-] User SPNs
     [-] PasswordAttributes - Experimental
-    [-] Groups - May take some time
+    [-] Groups and Membership Changes - May take some time
     [-] Group Memberships - May take some time
     [-] OrganizationalUnits (OUs)
     [-] GPOs
@@ -183,13 +185,14 @@
     [-] Trusts
     [-] Sites
     [-] Subnets
+    [-] SchemaHistory - May take some time
     [-] Default Password Policy
     [-] Fine Grained Password Policy - May need a Privileged Account
     [-] Domain Controllers
     [-] Users - May take some time
     [-] User SPNs
     [-] PasswordAttributes - Experimental
-    [-] Groups - May take some time
+    [-] Groups and Membership Changes - May take some time
     [-] Group Memberships - May take some time
     [-] OrganizationalUnits (OUs)
     [-] GPOs
@@ -235,8 +238,8 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast, DomainAccountsusedforServiceLogon) Valid values include: Forest, Domain, Trusts, Sites, Subnets, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupMembers, GroupChanges, OUs, GPOs, gPLinks, DNSZones, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon")]
-    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupMembers', 'GroupChanges', 'OUs', 'GPOs', 'gPLinks', 'DNSZones', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'ACLs', 'GPOReport', 'Kerberoast', 'DomainAccountsusedforServiceLogon', 'Default')]
+    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast, DomainAccountsusedforServiceLogon) Valid values include: Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, GPOs, gPLinks, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon")]
+    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'SchemaHistory', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupChanges', 'GroupMembers', 'OUs', 'GPOs', 'gPLinks', 'DNSZones', 'DNSRecords', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'ACLs', 'GPOReport', 'Kerberoast', 'DomainAccountsusedforServiceLogon', 'Default')]
     [array] $Collect = 'Default',
 
     [Parameter(Mandatory = $false, HelpMessage = "Output type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel)")]
@@ -356,6 +359,12 @@ namespace ADRecon
             return ADRObject.Length;
         }
 
+        public static Object[] SchemaParser(Object[] AdSchemas, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdSchemas, numOfThreads, "SchemaHistory");
+            return ADRObj;
+        }
+
         public static Object[] UserParser(Object[] AdUsers, DateTime Date1, int DormantTimeSpan, int PassMaxAge, int numOfThreads)
         {
             ADWSClass.Date1 = Date1;
@@ -378,19 +387,19 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] GroupChangeParser(Object[] AdGroups, DateTime Date1, int numOfThreads)
+        {
+            ADWSClass.Date1 = Date1;
+            Object[] ADRObj = runProcessor(AdGroups, numOfThreads, "GroupChanges");
+            return ADRObj;
+        }
+
         public static Object[] GroupMemberParser(Object[] AdGroups, Object[] AdGroupMembers, String DomainSID, int numOfThreads)
         {
             ADWSClass.AdGroupDictionary = new Dictionary<String, String>();
             runProcessor(AdGroups, numOfThreads, "GroupsDictionary");
             ADWSClass.DomainSID = DomainSID;
             Object[] ADRObj = runProcessor(AdGroupMembers, numOfThreads, "GroupMembers");
-            return ADRObj;
-        }
-
-        public static Object[] GroupChangeParser(Object[] AdGroups, DateTime Date1, int numOfThreads)
-        {
-            ADWSClass.Date1 = Date1;
-            Object[] ADRObj = runProcessor(AdGroups, numOfThreads, "GroupChanges");
             return ADRObj;
         }
 
@@ -495,18 +504,20 @@ namespace ADRecon
         {
             switch (name)
             {
+                case "SchemaHistory":
+                    return new SchemaRecordProcessor();
                 case "Users":
                     return new UserRecordProcessor();
                 case "UserSPNs":
                     return new UserSPNRecordProcessor();
                 case "Groups":
                     return new GroupRecordProcessor();
+                case "GroupChanges":
+                    return new GroupChangeRecordProcessor();
                 case "GroupsDictionary":
                     return new GroupRecordDictionaryProcessor();
                 case "GroupMembers":
                     return new GroupMemberRecordProcessor();
-                case "GroupChanges":
-                    return new GroupChangeRecordProcessor();
                 case "OUs":
                     return new OURecordProcessor();
                 case "GPOs":
@@ -565,6 +576,29 @@ namespace ADRecon
             PSObject[] processRecord(Object record);
         }
 
+        class SchemaRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdSchema = (PSObject) record;
+                    PSObject SchemaObj = new PSObject();
+                    SchemaObj.Members.Add(new PSNoteProperty("ObjectClass", AdSchema.Members["ObjectClass"].Value));
+                    SchemaObj.Members.Add(new PSNoteProperty("Name", AdSchema.Members["Name"].Value));
+                    SchemaObj.Members.Add(new PSNoteProperty("whenCreated", AdSchema.Members["whenCreated"].Value));
+                    SchemaObj.Members.Add(new PSNoteProperty("whenChanged", AdSchema.Members["whenChanged"].Value));
+                    SchemaObj.Members.Add(new PSNoteProperty("DistinguishedName", AdSchema.Members["DistinguishedName"].Value));
+                    return new PSObject[] { SchemaObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Exception caught: {0}", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
         class UserRecordProcessor : IRecordProcessor
         {
             public PSObject[] processRecord(Object record)
@@ -598,7 +632,7 @@ namespace ADRecon
                     }
                     catch //(Exception e)
                     {
-                        //Console.WriteLine("{0} Exception caught.", e);
+                        //Console.WriteLine("Exception caught: {0}", e);
                     }
                     if (AdUser.Members["lastLogonTimeStamp"].Value != null)
                     {
@@ -649,7 +683,7 @@ namespace ADRecon
                             }
                             catch //(Exception e)
                             {
-                                //Console.WriteLine("{0} Exception caught.", e);
+                                //Console.WriteLine("Exception caught: {0}", e);
                             }
                         }
                     //}
@@ -770,7 +804,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -851,7 +885,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -904,12 +938,111 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
         }
 
+        class GroupChangeRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdGroup = (PSObject) record;
+                    String Action = null;
+                    int? DaysSinceAdded = null;
+                    int? DaysSinceRemoved = null;
+                    DateTime? AddedDate = null;
+                    DateTime? RemovedDate = null;
+                    List<PSObject> GroupChangesList = new List<PSObject>();
+
+                    Microsoft.ActiveDirectory.Management.ADPropertyValueCollection ReplValueMetaData = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdGroup.Members["msDS-ReplValueMetaData"].Value;
+
+                    if (ReplValueMetaData.Value != null)
+                    {
+                        if (ReplValueMetaData.Value is System.String[])
+                        {
+                            foreach (String ReplData in (System.String[])ReplValueMetaData.Value)
+                            {
+                                XmlDocument ReplXML = new XmlDocument();
+                                ReplXML.LoadXml(ReplData.Replace("\x00", ""));
+                                
+                                if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
+                                {
+                                    Action = "Removed";
+                                    AddedDate = DateTime.Parse(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText);
+                                    DaysSinceAdded = Math.Abs((Date1 - (DateTime) AddedDate).Days);
+                                    RemovedDate = DateTime.Parse(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText);
+                                    DaysSinceRemoved = Math.Abs((Date1 - (DateTime) RemovedDate).Days);
+                                }
+                                else
+                                {
+                                    Action = "Added";
+                                    AddedDate = DateTime.Parse(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText);
+                                    DaysSinceAdded = Math.Abs((Date1 - (DateTime) AddedDate).Days);                                    
+                                    RemovedDate = null;
+                                    DaysSinceRemoved = null;
+                                }
+
+                                PSObject GroupChangeObj = new PSObject();
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Group Name", AdGroup.Members["SamAccountName"].Value));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Group DistinguishedName", CleanString(AdGroup.Members["DistinguishedName"].Value)));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Member DistinguishedName", CleanString(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["pszObjectDn"].InnerText)));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Action", Action));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Added Age (Days)", DaysSinceAdded));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Removed Age (Days)", DaysSinceRemoved));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Added Date", AddedDate));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Removed Date", RemovedDate));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeCreated", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeDeleted", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText));
+                                GroupChangesList.Add( GroupChangeObj );
+                            }
+                        }
+                        else
+                        {
+                                XmlDocument ReplXML = new XmlDocument();
+                                ReplXML.LoadXml((Convert.ToString(ReplValueMetaData.Value)).Replace("\x00", ""));
+
+                                if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
+                                {
+                                    Action = "Removed";
+                                    AddedDate = DateTime.Parse(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText);
+                                    DaysSinceAdded = Math.Abs((Date1 - (DateTime) AddedDate).Days);
+                                    RemovedDate = DateTime.Parse(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText);
+                                    DaysSinceRemoved = Math.Abs((Date1 - (DateTime) RemovedDate).Days);
+                                }
+                                else
+                                {
+                                    Action = "Added";
+                                    AddedDate = DateTime.Parse(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText);
+                                    DaysSinceAdded = Math.Abs((Date1 - (DateTime) AddedDate).Days);
+                                }
+                                
+                                PSObject GroupChangeObj = new PSObject();
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Group Name", AdGroup.Members["SamAccountName"].Value));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Group DistinguishedName", CleanString(AdGroup.Members["DistinguishedName"].Value)));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Member DistinguishedName", CleanString(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["pszObjectDn"].InnerText)));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Action", Action));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Added Age (Days)", DaysSinceAdded));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Removed Age (Days)", DaysSinceRemoved));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Added Date", AddedDate));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Removed Date", RemovedDate));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeCreated", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeDeleted", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText));
+                                GroupChangesList.Add( GroupChangeObj );
+                        }
+                    }
+                    return GroupChangesList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Exception caught: {0}", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
 
         class GroupRecordDictionaryProcessor : IRecordProcessor
         {
@@ -923,7 +1056,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -988,7 +1121,7 @@ namespace ADRecon
                         }
                         catch //(Exception e)
                         {
-                            //Console.WriteLine("{0} Exception caught.", e);
+                            //Console.WriteLine("Exception caught: {0}", e);
                             GroupName = PrimaryGroupID;
                         }
 
@@ -1041,7 +1174,7 @@ namespace ADRecon
                         }
                         catch //(Exception e)
                         {
-                            //Console.WriteLine("{0} Exception caught.", e);
+                            //Console.WriteLine("Exception caught: {0}", e);
                             GroupName = PrimaryGroupID;
                         }
 
@@ -1090,81 +1223,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
-        class GroupChangeRecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    PSObject AdGroup = (PSObject) record;
-                    String Action = null;
-                    List<PSObject> GroupChangesList = new List<PSObject>();
-
-                    Microsoft.ActiveDirectory.Management.ADPropertyValueCollection ReplValueMetaData = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdGroup.Members["msDS-ReplValueMetaData"].Value;
-
-                    if (ReplValueMetaData.Value != null)
-                    {
-                        if (ReplValueMetaData.Value is System.String[])
-                        {
-                            foreach (String ReplData in (System.String[])ReplValueMetaData.Value)
-                            {
-                                XmlDocument ReplXML = new XmlDocument();
-                                ReplXML.LoadXml(ReplData.Replace("\x00", ""));
-                                
-                                if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
-                                {
-                                    Action = "Removed";
-                                }
-                                else
-                                {
-                                    Action = "Added";
-                                }
-
-                                PSObject GroupChangeObj = new PSObject();
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Group Name", AdGroup.Members["SamAccountName"].Value));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Group DistinguishedName", CleanString(AdGroup.Members["DistinguishedName"].Value)));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Member DistinguishedName", CleanString(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["pszObjectDn"].InnerText)));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Action", Action));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeCreated", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeDeleted", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText));
-                                GroupChangesList.Add( GroupChangeObj );
-                            }
-                        }
-                        else
-                        {
-                                XmlDocument ReplXML = new XmlDocument();
-                                ReplXML.LoadXml((Convert.ToString(ReplValueMetaData.Value)).Replace("\x00", ""));
-
-                                if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
-                                {
-                                    Action = "Removed";
-                                }
-                                else
-                                {
-                                    Action = "Added";
-                                }
-                                
-                                PSObject GroupChangeObj = new PSObject();
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Group Name", AdGroup.Members["SamAccountName"].Value));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Group DistinguishedName", CleanString(AdGroup.Members["DistinguishedName"].Value)));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Member DistinguishedName", CleanString(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["pszObjectDn"].InnerText)));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Action", Action));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeCreated", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("ftimeDeleted", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText));
-                                GroupChangesList.Add( GroupChangeObj );
-                        }
-                    }
-                    return GroupChangesList.ToArray();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1188,7 +1247,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1213,7 +1272,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1231,7 +1290,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1312,7 +1371,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1340,7 +1399,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1464,7 +1523,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1517,7 +1576,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1539,7 +1598,7 @@ namespace ADRecon
                     }
                     catch //(Exception e)
                     {
-                        //Console.WriteLine("{0} Exception caught.", e);
+                        //Console.WriteLine("Exception caught: {0}", e);
                     }
                     PSObject LAPSObj = new PSObject();
                     LAPSObj.Members.Add(new PSNoteProperty("Hostname", (AdComputer.Members["DNSHostName"].Value != null ? AdComputer.Members["DNSHostName"].Value : AdComputer.Members["CN"].Value )));
@@ -1551,7 +1610,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1576,7 +1635,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} {1} Exception caught.", ((PSObject) record).Members["ObjectClass"].Value, e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1660,7 +1719,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1738,7 +1797,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -1890,6 +1949,12 @@ namespace ADRecon
             return ADRObject.Length;
         }
 
+        public static Object[] SchemaParser(Object[] AdSchemas, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdSchemas, numOfThreads, "SchemaHistory");
+            return ADRObj;
+        }
+
         public static bool LAPSCheck(Object[] AdComputers)
         {
             bool LAPS = false;
@@ -1926,19 +1991,19 @@ namespace ADRecon
             return ADRObj;
         }
 
+        public static Object[] GroupChangeParser(Object[] AdGroups, DateTime Date1, int numOfThreads)
+        {
+            LDAPClass.Date1 = Date1;
+            Object[] ADRObj = runProcessor(AdGroups, numOfThreads, "GroupChanges");
+            return ADRObj;
+        }
+
         public static Object[] GroupMemberParser(Object[] AdGroups, Object[] AdGroupMembers, String DomainSID, int numOfThreads)
         {
             LDAPClass.AdGroupDictionary = new Dictionary<String, String>();
             runProcessor(AdGroups, numOfThreads, "GroupsDictionary");
             LDAPClass.DomainSID = DomainSID;
             Object[] ADRObj = runProcessor(AdGroupMembers, numOfThreads, "GroupMembers");
-            return ADRObj;
-        }
-
-        public static Object[] GroupChangeParser(Object[] AdGroups, DateTime Date1, int numOfThreads)
-        {
-            LDAPClass.Date1 = Date1;
-            Object[] ADRObj = runProcessor(AdGroups, numOfThreads, "GroupChanges");
             return ADRObj;
         }
 
@@ -2042,19 +2107,21 @@ namespace ADRecon
         static IRecordProcessor recordProcessorFactory(String name)
         {
             switch (name)
-            {
+            {                
+                case "SchemaHistory":
+                    return new SchemaRecordProcessor();
                 case "Users":
                     return new UserRecordProcessor();
                 case "UserSPNs":
                     return new UserSPNRecordProcessor();
                 case "Groups":
                     return new GroupRecordProcessor();
+                case "GroupChanges":
+                    return new GroupChangeRecordProcessor();
                 case "GroupsDictionary":
                     return new GroupRecordDictionaryProcessor();
                 case "GroupMembers":
                     return new GroupMemberRecordProcessor();
-                case "GroupChanges":
-                    return new GroupChangeRecordProcessor();
                 case "OUs":
                     return new OURecordProcessor();
                 case "GPOs":
@@ -2111,6 +2178,30 @@ namespace ADRecon
         interface IRecordProcessor
         {
             PSObject[] processRecord(Object record);
+        }
+
+        class SchemaRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdSchema = (SearchResult) record;
+
+                    PSObject SchemaObj = new PSObject();
+                    SchemaObj.Members.Add(new PSNoteProperty("ObjectClass", AdSchema.Properties["objectclass"][0]));
+                    SchemaObj.Members.Add(new PSNoteProperty("Name", AdSchema.Properties["name"][0]));
+                    SchemaObj.Members.Add(new PSNoteProperty("whenCreated", AdSchema.Properties["whencreated"][0]));
+                    SchemaObj.Members.Add(new PSNoteProperty("whenChanged", AdSchema.Properties["whenchanged"][0]));
+                    SchemaObj.Members.Add(new PSNoteProperty("DistinguishedName", AdSchema.Properties["distinguishedname"][0]));
+                    return new PSObject[] { SchemaObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Exception caught: {0}", e);
+                    return new PSObject[] { };
+                }
+            }
         }
 
         class UserRecordProcessor : IRecordProcessor
@@ -2268,7 +2359,7 @@ namespace ADRecon
                             }
                             catch //(Exception e)
                             {
-                                //    Console.WriteLine("{0} Exception caught.", e);
+                                //    Console.WriteLine("Exception caught: {0}", e);
                             }
                         }
                     }
@@ -2365,7 +2456,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -2425,7 +2516,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -2495,7 +2586,71 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
+                    return new PSObject[] { };
+                }
+            }
+        }
+
+        class GroupChangeRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    SearchResult AdGroup = (SearchResult) record;
+                    String Action = null;
+                    int? DaysSinceAdded = null;
+                    int? DaysSinceRemoved = null;
+                    DateTime? AddedDate = null;
+                    DateTime? RemovedDate = null;
+                    List<PSObject> GroupChangesList = new List<PSObject>();
+
+                    System.DirectoryServices.ResultPropertyValueCollection ReplValueMetaData = (System.DirectoryServices.ResultPropertyValueCollection) AdGroup.Properties["msDS-ReplValueMetaData"];
+
+                    if (ReplValueMetaData.Count != 0)
+                    {
+                        foreach (String ReplData in ReplValueMetaData)
+                        {
+                            XmlDocument ReplXML = new XmlDocument();
+                            ReplXML.LoadXml(ReplData.Replace("\x00", ""));
+
+                            if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
+                            {
+                                Action = "Removed";
+                                AddedDate = DateTime.Parse(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText);
+                                DaysSinceAdded = Math.Abs((Date1 - (DateTime) AddedDate).Days);
+                                RemovedDate = DateTime.Parse(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText);
+                                DaysSinceRemoved = Math.Abs((Date1 - (DateTime) RemovedDate).Days);
+                            }
+                            else
+                            {
+                                Action = "Added";
+                                AddedDate = DateTime.Parse(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText);
+                                DaysSinceAdded = Math.Abs((Date1 - (DateTime) AddedDate).Days);                                    
+                                RemovedDate = null;
+                                DaysSinceRemoved = null;
+                            }
+
+                            PSObject GroupChangeObj = new PSObject();
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Group Name", AdGroup.Properties["samaccountname"][0]));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Group DistinguishedName", CleanString(AdGroup.Properties["distinguishedname"][0])));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Member DistinguishedName", CleanString(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["pszObjectDn"].InnerText)));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Action", Action));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Added Age (Days)", DaysSinceAdded));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Removed Age (Days)", DaysSinceRemoved));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Added Date", AddedDate));
+                                GroupChangeObj.Members.Add(new PSNoteProperty("Removed Date", RemovedDate));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("ftimeCreated", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("ftimeDeleted", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText));
+                            GroupChangesList.Add( GroupChangeObj );
+                        }
+                    }                    
+                    return GroupChangesList.ToArray();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -2513,7 +2668,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -2561,7 +2716,7 @@ namespace ADRecon
                         }
                         catch //(Exception e)
                         {
-                            //Console.WriteLine("{0} Exception caught.", e);
+                            //Console.WriteLine("Exception caught: {0}", e);
                             GroupName = PrimaryGroupID;
                         }
 
@@ -2597,7 +2752,7 @@ namespace ADRecon
                         }
                         catch //(Exception e)
                         {
-                            //Console.WriteLine("{0} Exception caught.", e);
+                            //Console.WriteLine("Exception caught: {0}", e);
                             GroupName = PrimaryGroupID;
                         }
 
@@ -2629,55 +2784,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
-        class GroupChangeRecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    SearchResult AdGroup = (SearchResult) record;
-                    String Action = null;
-                    List<PSObject> GroupChangesList = new List<PSObject>();
-
-                    System.DirectoryServices.ResultPropertyValueCollection ReplValueMetaData = (System.DirectoryServices.ResultPropertyValueCollection) AdGroup.Properties["msDS-ReplValueMetaData"];
-
-                    if (ReplValueMetaData.Count != 0)
-                    {
-                        foreach (String ReplData in ReplValueMetaData)
-                        {
-                            XmlDocument ReplXML = new XmlDocument();
-                            ReplXML.LoadXml(ReplData.Replace("\x00", ""));
-
-                            if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
-                            {
-                                Action = "Removed";
-                            }
-                            else
-                            {
-                                Action = "Added";
-                            }
-
-                            PSObject GroupChangeObj = new PSObject();
-                            GroupChangeObj.Members.Add(new PSNoteProperty("Group Name", AdGroup.Properties["samaccountname"][0]));
-                            GroupChangeObj.Members.Add(new PSNoteProperty("Group DistinguishedName", CleanString(AdGroup.Properties["distinguishedname"][0])));
-                            GroupChangeObj.Members.Add(new PSNoteProperty("Member DistinguishedName", CleanString(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["pszObjectDn"].InnerText)));
-                            GroupChangeObj.Members.Add(new PSNoteProperty("Action", Action));
-                            GroupChangeObj.Members.Add(new PSNoteProperty("ftimeCreated", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText));
-                            GroupChangeObj.Members.Add(new PSNoteProperty("ftimeDeleted", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText));
-                            GroupChangesList.Add( GroupChangeObj );
-                        }
-                    }                    
-                    return GroupChangesList.ToArray();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -2702,7 +2809,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -2727,7 +2834,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -2745,7 +2852,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -2830,7 +2937,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -2858,7 +2965,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -2987,7 +3094,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -3027,7 +3134,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -3057,7 +3164,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -3082,7 +3189,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -3177,7 +3284,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -3268,7 +3375,7 @@ namespace ADRecon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} Exception caught.", e);
+                    Console.WriteLine("Exception caught: {0}", e);
                     return new PSObject[] { };
                 }
             }
@@ -4933,6 +5040,14 @@ Function Export-ADRExcel
         If (Test-Path $ADFileName)
         {
             Get-ADRExcelWorkbook -Name "Sites"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
+        }
+
+        $ADFileName = -join($ReportPath,'\','SchemaHistory.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook -Name "SchemaHistory"
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
         }
@@ -6881,6 +6996,121 @@ Function Get-ADRSubnet
     }
 }
 
+Function Get-ADRSchemaHistory
+{
+<#
+.SYNOPSIS
+    Returns the Schema History of the current (or specified) domain.
+
+.DESCRIPTION
+    Returns the Schema History of the current (or specified) domain.
+
+.PARAMETER Protocol
+    [string]
+    Which protocol to use; ADWS (default) or LDAP.
+
+.PARAMETER objDomain
+    [DirectoryServices.DirectoryEntry]
+    Domain Directory Entry object.
+
+.PARAMETER objDomainRootDSE
+    [DirectoryServices.DirectoryEntry]
+    RootDSE Directory Entry object.
+
+.PARAMETER DomainController
+    [string]
+    IP Address of the Domain Controller.
+
+.PARAMETER Credential
+    [Management.Automation.PSCredential]
+    Credentials.
+
+.OUTPUTS
+    PSObject.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Protocol,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomain,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomainRootDSE,
+
+        [Parameter(Mandatory = $false)]
+        [string] $DomainController,
+
+        [Parameter(Mandatory = $false)]
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty
+    )
+
+    If ($Protocol -eq 'ADWS')
+    {
+        Try
+        {
+            $ADSchemaHistory = @( Get-ADObject -SearchBase ((Get-ADRootDSE).schemaNamingContext) -SearchScope OneLevel -Filter * -Property DistinguishedName, Name, ObjectClass, whenChanged, whenCreated )
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRSchemaHistory] Error while enumerating Schema Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        If ($ADSchemaHistory)
+        {
+            Write-Verbose "[*] Total Schema Objects: $([ADRecon.ADWSClass]::ObjectCount($ADSchemaHistory))"
+            $ADSchemaObj = [ADRecon.ADWSClass]::SchemaParser($ADSchemaHistory, $Threads)
+            Remove-Variable ADSchemaHistory
+        }
+    }
+
+    If ($Protocol -eq 'LDAP')
+    {
+        If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+        {
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($objDomainRootDSE.schemaNamingContext)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+        }
+        Else
+        {
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($objDomainRootDSE.schemaNamingContext)"
+        }
+        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
+        $ObjSearcher.Filter = "(objectClass=*)"
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname","name","objectclass","whenchanged","whencreated"))
+        $ObjSearcher.SearchScope = "OneLevel"
+
+        Try
+        {
+            $ADSchemaHistory = $ObjSearcher.FindAll()
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRSchemaHistory] Error while enumerating Schema Objects"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+        $ObjSearcher.dispose()
+
+        If ($ADSchemaHistory)
+        {
+            Write-Verbose "[*] Total Schema Objects: $([ADRecon.LDAPClass]::ObjectCount($ADSchemaHistory))"
+            $ADSchemaObj = [ADRecon.LDAPClass]::SchemaParser($ADSchemaHistory, $Threads)
+            Remove-Variable ADSchemaHistory
+        }
+    }
+
+    If ($ADSchemaObj)
+    {
+        Return $ADSchemaObj
+    }
+    Else
+    {
+        Return $null
+    }
+}
+
 Function Get-ADRDefaultPasswordPolicy
 {
 <#
@@ -7678,14 +7908,18 @@ Function Get-ADRGroup
 {
 <#
 .SYNOPSIS
-    Returns all groups in the current (or specified) domain.
+    Returns all groups and/or membership changes in the current (or specified) domain.
 
 .DESCRIPTION
-    Returns all groups in the current (or specified) domain.
+    Returns all groups and/or membership changes in the current (or specified) domain.
 
 .PARAMETER Protocol
     [string]
     Which protocol to use; ADWS (default) or LDAP.
+
+.PARAMETER date
+    [DateTime]
+    Date when ADRecon was executed.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -7699,12 +7933,29 @@ Function Get-ADRGroup
     [int]
     The number of threads to use during processing of objects. Default 10.
 
+.PARAMETER ADROutputDir
+    [string]
+    Path for ADRecon output folder.
+
+.PARAMETER OutputType
+    [array]
+    Output Type.
+
+.PARAMETER ADRGroups
+    [bool]
+
+.PARAMETER ADRGroupChanges
+    [bool]
+
 .OUTPUTS
     PSObject.
 #>
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
+
+        [Parameter(Mandatory = $true)]
+        [DateTime] $date,
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
@@ -7713,14 +7964,26 @@ Function Get-ADRGroup
         [int] $PageSize,
 
         [Parameter(Mandatory = $false)]
-        [int] $Threads = 10
+        [int] $Threads = 10,
+
+        [Parameter(Mandatory = $true)]
+        [string] $ADROutputDir,
+
+        [Parameter(Mandatory = $true)]
+        [array] $OutputType,
+
+        [Parameter(Mandatory = $false)]
+        [bool] $ADRGroups = $true,
+
+        [Parameter(Mandatory = $false)]
+        [bool] $ADRGroupChanges = $false
     )
 
     If ($Protocol -eq 'ADWS')
     {
         Try
         {
-            $ADGroups = @( Get-ADGroup -Filter * -ResultPageSize $PageSize -Properties AdminCount,CanonicalName,DistinguishedName,Description,GroupCategory,GroupScope,SamAccountName,SID,SIDHistory,managedBy,whenChanged,whenCreated )
+            $ADGroups = @( Get-ADGroup -Filter * -ResultPageSize $PageSize -Properties AdminCount,CanonicalName,DistinguishedName,Description,GroupCategory,GroupScope,SamAccountName,SID,SIDHistory,managedBy,'msDS-ReplValueMetaData',whenChanged,whenCreated )
         }
         Catch
         {
@@ -7732,8 +7995,17 @@ Function Get-ADRGroup
         If ($ADGroups)
         {
             Write-Verbose "[*] Total Groups: $([ADRecon.ADWSClass]::ObjectCount($ADGroups))"
-            $GroupObj = [ADRecon.ADWSClass]::GroupParser($ADGroups, $Threads)
+            If ($ADRGroups)
+            {
+                $GroupObj = [ADRecon.ADWSClass]::GroupParser($ADGroups, $Threads)
+            }
+            If ($ADRGroupChanges)
+            {
+                $GroupChangesObj = [ADRecon.ADWSClass]::GroupChangeParser($ADGroups, $date, $Threads)
+            }
             Remove-Variable ADGroups
+            Remove-Variable ADRGroups
+            Remove-Variable ADRGroupChanges
         }
     }
 
@@ -7742,7 +8014,7 @@ Function Get-ADRGroup
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(objectClass=group)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("admincount","canonicalname", "distinguishedname", "description", "grouptype","samaccountname", "sidhistory", "managedby", "objectsid", "whencreated", "whenchanged"))
+        $ObjSearcher.PropertiesToLoad.AddRange(("admincount","canonicalname", "distinguishedname", "description", "grouptype","samaccountname", "sidhistory", "managedby", "msds-replvaluemetadata", "objectsid", "whencreated", "whenchanged"))
         $ObjSearcher.SearchScope = "Subtree"
 
         Try
@@ -7760,18 +8032,30 @@ Function Get-ADRGroup
         If ($ADGroups)
         {
             Write-Verbose "[*] Total Groups: $([ADRecon.LDAPClass]::ObjectCount($ADGroups))"
-            $GroupObj = [ADRecon.LDAPClass]::GroupParser($ADGroups, $Threads)
+            If ($ADRGroups)
+            {
+                $GroupObj = [ADRecon.LDAPClass]::GroupParser($ADGroups, $Threads)
+            }
+            If ($ADRGroupChanges)
+            {            
+                $GroupChangesObj = [ADRecon.LDAPClass]::GroupChangeParser($ADGroups, $date, $Threads)
+            }
             Remove-Variable ADGroups
+            Remove-Variable ADRGroups
+            Remove-Variable ADRGroupChanges
         }
     }
 
     If ($GroupObj)
     {
-        Return $GroupObj
+        Export-ADR -ADRObj $GroupObj -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Groups"
+        Remove-Variable GroupObj
     }
-    Else
+
+    If ($GroupChangesObj)
     {
-        Return $null
+        Export-ADR -ADRObj $GroupChangesObj -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "GroupChanges"
+        Remove-Variable GroupChangesObj
     }
 }
 
@@ -7989,114 +8273,6 @@ Function Get-ADRGroupMember
     If ($GroupMemberObj)
     {
         Return $GroupMemberObj
-    }
-    Else
-    {
-        Return $null
-    }
-}
-
-Function Get-ADRGroupChange
-{
-<#
-.SYNOPSIS
-    Returns all changes in groupmemberships in the current (or specified) domain.
-
-.DESCRIPTION
-    Returns all changes in groupmemberships in the current (or specified) domain.
-
-.PARAMETER Protocol
-    [string]
-    Which protocol to use; ADWS (default) or LDAP.
-
-.PARAMETER date
-    [DateTime]
-    Date when ADRecon was executed.
-
-.PARAMETER objDomain
-    [DirectoryServices.DirectoryEntry]
-    Domain Directory Entry object.
-
-.PARAMETER PageSize
-    [int]
-    The PageSize to set for the LDAP searcher object. Default 200.
-
-.PARAMETER Threads
-    [int]
-    The number of threads to use during processing of objects. Default 10.
-
-.OUTPUTS
-    PSObject.
-#>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [DateTime] $date,
-
-        [Parameter(Mandatory = $false)]
-        [DirectoryServices.DirectoryEntry] $objDomain,
-
-        [Parameter(Mandatory = $true)]
-        [int] $PageSize,
-
-        [Parameter(Mandatory = $false)]
-        [int] $Threads = 10
-    )
-
-    If ($Protocol -eq 'ADWS')
-    {
-        Try
-        {
-            $ADGroups = @( Get-ADObject -LDAPFilter ("objectClass=group") -Properties DistinguishedName,SamAccountName,'msDS-ReplValueMetaData' )
-        }
-        Catch
-        {
-            Write-Warning "[Get-ADRGroupChange] Error while enumerating Group Objects"
-            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-            Return $null
-        }
-
-        If ($ADGroups)
-        {
-            Write-Verbose "[*] Total Groups: $([ADRecon.ADWSClass]::ObjectCount($ADGroups))"
-            $ADGroupChangesObj = [ADRecon.ADWSClass]::GroupChangeParser($ADGroups, $date, $Threads)
-            Remove-Variable ADGroups
-        }
-    }
-
-    If ($Protocol -eq 'LDAP')
-    {
-        $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
-        $ObjSearcher.PageSize = $PageSize
-        $ObjSearcher.Filter = "(objectClass=group)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname", "samaccountname", "msDS-ReplValueMetaData"))
-        $ObjSearcher.SearchScope = "Subtree"
-
-        Try
-        {
-            $ADGroups = $ObjSearcher.FindAll()
-        }
-        Catch
-        {
-            Write-Warning "[Get-ADRGroupChange] Error while enumerating Group Objects"
-            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-            Return $null
-        }
-        $ObjSearcher.dispose()
-
-        If ($ADGroups)
-        {
-            Write-Verbose "[*] Total Groups: $([ADRecon.LDAPClass]::ObjectCount($ADGroups))"
-            $ADGroupChangesObj = [ADRecon.LDAPClass]::GroupChangeParser($ADGroups, $date, $Threads)
-            Remove-Variable ADGroups
-        }
-    }
-
-    If ($ADGroupChangesObj)
-    {
-        Return $ADGroupChangesObj
     }
     Else
     {
@@ -8734,10 +8910,6 @@ Function Get-ADRDNSZone
     [string]
     Which protocol to use; ADWS (default) or LDAP.
 
-.PARAMETER ADROutputDir
-    [string]
-    Path for ADRecon output folder.
-
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
@@ -8754,9 +8926,19 @@ Function Get-ADRDNSZone
     [int]
     The PageSize to set for the LDAP searcher object. Default 200.
 
+.PARAMETER ADROutputDir
+    [string]
+    Path for ADRecon output folder.
+
 .PARAMETER OutputType
     [array]
     Output Type.
+
+.PARAMETER ADRDNSZones
+    [bool]
+
+.PARAMETER ADRDNSRecords
+    [bool]
 
 .OUTPUTS
     CSV files are created in the folder specified with the information.
@@ -8764,9 +8946,6 @@ Function Get-ADRDNSZone
     param(
         [Parameter(Mandatory = $true)]
         [string] $Protocol,
-
-        [Parameter(Mandatory = $true)]
-        [string] $ADROutputDir,
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
@@ -8781,7 +8960,16 @@ Function Get-ADRDNSZone
         [int] $PageSize,
 
         [Parameter(Mandatory = $true)]
-        [array] $OutputType
+        [string] $ADROutputDir,
+
+        [Parameter(Mandatory = $true)]
+        [array] $OutputType,
+
+        [Parameter(Mandatory = $false)]
+        [bool] $ADRDNSZones = $true,
+
+        [Parameter(Mandatory = $false)]
+        [bool] $ADRDNSRecords = $false
     )
 
     If ($Protocol -eq 'ADWS')
@@ -9085,13 +9273,13 @@ Function Get-ADRDNSZone
         }
     }
 
-    If ($ADDNSZonesObj)
+    If ($ADDNSZonesObj -and $ADRDNSZones)
     {
         Export-ADR $ADDNSZonesObj $ADROutputDir $OutputType "DNSZones"
         Remove-Variable ADDNSZonesObj
     }
 
-    If ($ADDNSNodesObj)
+    If ($ADDNSNodesObj -and $ADRDNSRecords)
     {
         Export-ADR $ADDNSNodesObj $ADROutputDir $OutputType "DNSNodes"
         Remove-Variable ADDNSNodesObj
@@ -11685,19 +11873,21 @@ Function Invoke-ADRecon
         'Trusts' { $ADRTrust = $true }
         'Sites' { $ADRSite = $true }
         'Subnets' { $ADRSubnet = $true }
+        'SchemaHistory' { $ADRSchemaHistory = $true }
         'PasswordPolicy' { $ADRPasswordPolicy = $true }
         'FineGrainedPasswordPolicy' { $ADRFineGrainedPasswordPolicy = $true }
         'DomainControllers' { $ADRDomainControllers = $true }
         'Users' { $ADRUsers = $true }
         'UserSPNs' { $ADRUserSPNs = $true }
         'PasswordAttributes' { $ADRPasswordAttributes = $true }
-        'Groups' { $ADRGroups = $true }
-        'GroupMembers' { $ADRGroupMembers = $true }
+        'Groups' {$ADRGroups = $true }
         'GroupChanges' { $ADRGroupChanges = $true }
+        'GroupMembers' { $ADRGroupMembers = $true }        
         'OUs' { $ADROUs = $true }
         'GPOs' { $ADRGPOs = $true }
         'gPLinks' { $ADRgPLinks = $true }
         'DNSZones' { $ADRDNSZones = $true }
+        'DNSRecords' { $ADRDNSRecords = $true }        
         'Printers' { $ADRPrinters = $true }
         'Computers' { $ADRComputers = $true }
         'ComputerSPNs' { $ADRComputerSPNs = $true }
@@ -11718,6 +11908,7 @@ Function Invoke-ADRecon
             $ADRTrust = $true
             $ADRSite = $true
             $ADRSubnet = $true
+            $ADRSchemaHistory = $true
             $ADRPasswordPolicy = $true
             $ADRFineGrainedPasswordPolicy = $true
             $ADRDomainControllers = $true
@@ -11731,6 +11922,7 @@ Function Invoke-ADRecon
             $ADRGPOs = $true
             $ADRgPLinks = $true
             $ADRDNSZones = $true
+            $ADRDNSRecords = $true
             $ADRPrinters = $true
             $ADRComputers = $true
             $ADRComputerSPNs = $true
@@ -12026,6 +12218,17 @@ Function Invoke-ADRecon
             Remove-Variable ADRObject
         }
         Remove-Variable ADRSubnet
+    }    
+    If ($ADRSchemaHistory)
+    {
+        Write-Output "[-] SchemaHistory - May take some time"
+        $ADRObject = Get-ADRSchemaHistory -Protocol $Protocol -objDomain $objDomain -objDomainRootDSE $objDomainRootDSE -DomainController $DomainController -Credential $Credential
+        If ($ADRObject)
+        {
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "SchemaHistory"
+            Remove-Variable ADRObject
+        }
+        Remove-Variable ADRSchemaHistory
     }
     If ($ADRPasswordPolicy)
     {
@@ -12093,16 +12296,25 @@ Function Invoke-ADRecon
         }
         Remove-Variable ADRPasswordAttributes
     }
-    If ($ADRGroups)
+    If ($ADRGroups -or $ADRGroupChanges)
     {
-        Write-Output "[-] Groups - May take some time"
-        $ADRObject = Get-ADRGroup -Protocol $Protocol -objDomain $objDomain -PageSize $PageSize -Threads $Threads
-        If ($ADRObject)
+        If ($ADRGroups -and (!$ADRGroupChanges))
         {
-            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Groups"
-            Remove-Variable ADRObject
+            Write-Output "[-] Groups - May take some time"
+            $ADRGroupChanges = $false
         }
+        ElseIf ((!$ADRGroups) -and $ADRGroupChanges)
+        {
+            Write-Output "[-] Group Membership Changes - May take some time"
+            $ADRGroups = $false
+        }
+        Else
+        {
+            Write-Output "[-] Groups and Membership Changes - May take some time"
+        }
+        Get-ADRGroup -Protocol $Protocol -date $date -objDomain $objDomain -PageSize $PageSize -Threads $Threads -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRGroups $ADRGroups -ADRGroupChanges $ADRGroupChanges
         Remove-Variable ADRGroups
+        Remove-Variable ADRGroupChanges
     }
     If ($ADRGroupMembers)
     {
@@ -12115,18 +12327,6 @@ Function Invoke-ADRecon
             Remove-Variable ADRObject
         }
         Remove-Variable ADRGroupMembers
-    }
-    If ($ADRGroupChanges)
-    {
-        Write-Output "[-] Group Changes - May take some time"
-
-        $ADRObject = Get-ADRGroupChange -Protocol $Protocol -Date $date -objDomain $objDomain -PageSize $PageSize -Threads $Threads
-        If ($ADRObject)
-        {
-            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "GroupChanges"
-            Remove-Variable ADRObject
-        }
-        Remove-Variable ADRGroupChanges
     }
     If ($ADROUs)
     {
@@ -12161,10 +12361,23 @@ Function Invoke-ADRecon
         }
         Remove-Variable ADRgPLinks
     }
-    If ($ADRDNSZones)
+    If ($ADRDNSZones -or $ADRDNSRecords)
     {
-        Write-Output "[-] DNS Zones and Records"
-        Get-ADRDNSZone -Protocol $Protocol -ADROutputDir $ADROutputDir -objDomain $objDomain -DomainController $DomainController -Credential $Credential -PageSize $PageSize -OutputType $OutputType
+        If ($ADRDNSZones -and (!$ADRDNSRecords))
+        {
+            Write-Output "[-] DNS Zones"
+            $ADRDNSRecords = $false
+        }
+        ElseIf ((!$ADRDNSZones) -and $ADRDNSRecords)
+        {
+            Write-Output "[-] DNS Records"
+            $ADRDNSZones = $false
+        }
+        Else
+        {
+            Write-Output "[-] DNS Zones and Records"
+        }        
+        Get-ADRDNSZone -Protocol $Protocol -objDomain $objDomain -DomainController $DomainController -Credential $Credential -PageSize $PageSize -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRDNSZones $ADRDNSZones -ADRDNSRecords $ADRDNSRecords
         Remove-Variable ADRDNSZones
     }
     If ($ADRPrinters)
