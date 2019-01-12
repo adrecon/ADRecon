@@ -6996,6 +6996,7 @@ Function Get-ADRSubnet
     }
 }
 
+# based on https://blogs.technet.microsoft.com/heyscriptingguy/2012/01/05/how-to-find-active-directory-schema-update-history-by-using-powershell/
 Function Get-ADRSchemaHistory
 {
 <#
