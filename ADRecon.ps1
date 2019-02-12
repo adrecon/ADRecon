@@ -161,7 +161,6 @@
     [-] ACLs - May take some time
     WARNING: [*] SACLs - Currently, the module is only supported with LDAP.
     [-] GPOReport - May take some time
-    WARNING: [EXCEPTION] Current security context is not associated with an Active Directory domain or forest.
     WARNING: [*] Run the tool using RUNAS.
     WARNING: [*] runas /user:<Domain FQDN>\<Username> /netonly powershell.exe
     [*] Total Execution Time (mins): <minutes>
@@ -271,9 +270,16 @@ using System.Linq;
 using System.Xml;
 using System.Threading;
 using System.DirectoryServices;
-using System.Security.Principal;
+//using System.Security.Principal;
 using System.Security.AccessControl;
 using System.Management.Automation;
+
+using System.Diagnostics;
+//using System.IO;
+//using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Runtime.InteropServices;
 
 namespace ADRecon
 {
@@ -353,6 +359,12 @@ namespace ADRecon
         public static int ObjectCount(Object[] ADRObject)
         {
             return ADRObject.Length;
+        }
+
+        public static Object[] DomainControllerParser(Object[] AdDomainControllers, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdDomainControllers, numOfThreads, "DomainControllers");
+            return ADRObj;
         }
 
         public static Object[] SchemaParser(Object[] AdSchemas, int numOfThreads)
@@ -500,6 +512,8 @@ namespace ADRecon
         {
             switch (name)
             {
+                case "DomainControllers":
+                    return new DomainControllerRecordProcessor();
                 case "SchemaHistory":
                     return new SchemaRecordProcessor();
                 case "Users":
@@ -570,6 +584,84 @@ namespace ADRecon
         interface IRecordProcessor
         {
             PSObject[] processRecord(Object record);
+        }
+
+        class DomainControllerRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    PSObject AdDC = (PSObject) record;
+                    bool Infra = false;
+                    bool Naming = false;
+                    bool Schema = false;
+                    bool RID = false;
+                    bool PDC = false;
+
+                    String OperatingSystem = CleanString((AdDC.Members["OperatingSystem"].Value != null ? AdDC.Members["OperatingSystem"].Value : "-") + " " + AdDC.Members["OperatingSystemHotfix"].Value + " " + AdDC.Members["OperatingSystemServicePack"].Value + " " + AdDC.Members["OperatingSystemVersion"].Value);
+
+                    foreach (var OperationMasterRole in (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdDC.Members["OperationMasterRoles"].Value)
+                    {
+                        switch (OperationMasterRole.ToString())
+                        {
+                            case "InfrastructureMaster":
+                            Infra = true;
+                            break;
+                            case "DomainNamingMaster":
+                            Naming = true;
+                            break;
+                            case "SchemaMaster":
+                            Schema = true;
+                            break;
+                            case "RIDMaster":
+                            RID = true;
+                            break;
+                            case "PDCEmulator":
+                            PDC = true;
+                            break;
+                        }
+                    }
+                    PSObject DCObj = new PSObject();
+                    DCObj.Members.Add(new PSNoteProperty("Domain", AdDC.Members["Domain"].Value));
+                    DCObj.Members.Add(new PSNoteProperty("Site", AdDC.Members["Site"].Value));
+                    DCObj.Members.Add(new PSNoteProperty("Name", AdDC.Members["Name"].Value));
+                    DCObj.Members.Add(new PSNoteProperty("IPv4Address", AdDC.Members["IPv4Address"].Value));
+                    DCObj.Members.Add(new PSNoteProperty("Operating System", OperatingSystem));
+                    DCObj.Members.Add(new PSNoteProperty("Hostname", AdDC.Members["HostName"].Value));
+                    DCObj.Members.Add(new PSNoteProperty("Infra", Infra));
+                    DCObj.Members.Add(new PSNoteProperty("Naming", Naming));
+                    DCObj.Members.Add(new PSNoteProperty("Schema", Schema));
+                    DCObj.Members.Add(new PSNoteProperty("RID", RID));
+                    DCObj.Members.Add(new PSNoteProperty("PDC", PDC));
+                    PSObject DCSMBObj = GetPSObject(AdDC.Members["IPv4Address"].Value);
+                    foreach (PSPropertyInfo psPropertyInfo in DCSMBObj.Properties)
+                    {
+                        if (Convert.ToString(psPropertyInfo.Name) == "SMB Port Open" && (bool) psPropertyInfo.Value == false)
+                        {
+                            DCObj.Members.Add(new PSNoteProperty(psPropertyInfo.Name, psPropertyInfo.Value));
+                            DCObj.Members.Add(new PSNoteProperty("SMB1(NT LM 0.12)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB2(0x0202)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB2(0x0210)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB3(0x0300)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB3(0x0302)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB3(0x0311)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB Signing", null));
+                            break;
+                        }
+                        else
+                        {
+                            DCObj.Members.Add(new PSNoteProperty(psPropertyInfo.Name, psPropertyInfo.Value));
+                        }
+                    }
+                    return new PSObject[] { DCObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("{0} Exception caught.", e);
+                    return new PSObject[] { };
+                }
+            }
         }
 
         class SchemaRecordProcessor : IRecordProcessor
@@ -1700,8 +1792,6 @@ namespace ADRecon
                 return processed.ToArray();
             }
         }
-    }
-}
 "@
 
 $LDAPSource = @"
@@ -1717,6 +1807,12 @@ using System.DirectoryServices;
 using System.Security.Principal;
 using System.Security.AccessControl;
 using System.Management.Automation;
+
+using System.Diagnostics;
+//using System.IO;
+using System.Net.Sockets;
+using System.Text;
+using System.Runtime.InteropServices;
 
 namespace ADRecon
 {
@@ -1809,12 +1905,6 @@ namespace ADRecon
             return ADRObject.Length;
         }
 
-        public static Object[] SchemaParser(Object[] AdSchemas, int numOfThreads)
-        {
-            Object[] ADRObj = runProcessor(AdSchemas, numOfThreads, "SchemaHistory");
-            return ADRObj;
-        }
-
         public static bool LAPSCheck(Object[] AdComputers)
         {
             bool LAPS = false;
@@ -1827,6 +1917,18 @@ namespace ADRecon
                 }
             }
             return LAPS;
+        }
+
+        public static Object[] DomainControllerParser(Object[] AdDomainControllers, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdDomainControllers, numOfThreads, "DomainControllers");
+            return ADRObj;
+        }
+
+        public static Object[] SchemaParser(Object[] AdSchemas, int numOfThreads)
+        {
+            Object[] ADRObj = runProcessor(AdSchemas, numOfThreads, "SchemaHistory");
+            return ADRObj;
         }
 
         public static Object[] UserParser(Object[] AdUsers, DateTime Date1, int DormantTimeSpan, int PassMaxAge, int numOfThreads)
@@ -1968,6 +2070,8 @@ namespace ADRecon
         {
             switch (name)
             {
+                case "DomainControllers":
+                    return new DomainControllerRecordProcessor();
                 case "SchemaHistory":
                     return new SchemaRecordProcessor();
                 case "Users":
@@ -2038,6 +2142,103 @@ namespace ADRecon
         interface IRecordProcessor
         {
             PSObject[] processRecord(Object record);
+        }
+
+        class DomainControllerRecordProcessor : IRecordProcessor
+        {
+            public PSObject[] processRecord(Object record)
+            {
+                try
+                {
+                    System.DirectoryServices.ActiveDirectory.DomainController AdDC = (System.DirectoryServices.ActiveDirectory.DomainController) record;
+                    bool? Infra = false;
+                    bool? Naming = false;
+                    bool? Schema = false;
+                    bool? RID = false;
+                    bool? PDC = false;
+                    String Domain = null;
+                    String Site = null;
+                    String OperatingSystem = null;
+                    try
+                    {
+                        Domain = AdDC.Domain.ToString();
+                        foreach (var OperationMasterRole in (System.DirectoryServices.ActiveDirectory.ActiveDirectoryRoleCollection) AdDC.Roles)
+                        {
+                            switch (OperationMasterRole.ToString())
+                            {
+                                case "InfrastructureRole":
+                                Infra = true;
+                                break;
+                                case "NamingRole":
+                                Naming = true;
+                                break;
+                                case "SchemaRole":
+                                Schema = true;
+                                break;
+                                case "RidRole":
+                                RID = true;
+                                break;
+                                case "PdcRole":
+                                PDC = true;
+                                break;
+                            }
+                        }
+                        Site = AdDC.SiteName;
+                        OperatingSystem = AdDC.OSVersion.ToString();
+                    }
+                    catch (System.DirectoryServices.ActiveDirectory.ActiveDirectoryServerDownException)// e)
+                    {
+                        //Console.WriteLine("Exception caught: {0}", e);
+                        Infra = null;
+                        Naming = null;
+                        Schema = null;
+                        RID = null;
+                        PDC = null;
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Exception caught: {0}", e);
+                    }
+                    PSObject DCObj = new PSObject();
+                    DCObj.Members.Add(new PSNoteProperty("Domain", Domain));
+                    DCObj.Members.Add(new PSNoteProperty("Site", Site));
+                    DCObj.Members.Add(new PSNoteProperty("Name", Convert.ToString(AdDC.Name).Split('.')[0]));
+                    DCObj.Members.Add(new PSNoteProperty("IPv4Address", AdDC.IPAddress));
+                    DCObj.Members.Add(new PSNoteProperty("Operating System", OperatingSystem));
+                    DCObj.Members.Add(new PSNoteProperty("Hostname", AdDC.Name));
+                    DCObj.Members.Add(new PSNoteProperty("Infra", Infra));
+                    DCObj.Members.Add(new PSNoteProperty("Naming", Naming));
+                    DCObj.Members.Add(new PSNoteProperty("Schema", Schema));
+                    DCObj.Members.Add(new PSNoteProperty("RID", RID));
+                    DCObj.Members.Add(new PSNoteProperty("PDC", PDC));
+                    PSObject DCSMBObj = GetPSObject(AdDC.IPAddress);
+                    foreach (PSPropertyInfo psPropertyInfo in DCSMBObj.Properties)
+                    {
+                        if (Convert.ToString(psPropertyInfo.Name) == "SMB Port Open" && (bool) psPropertyInfo.Value == false)
+                        {
+                            DCObj.Members.Add(new PSNoteProperty(psPropertyInfo.Name, psPropertyInfo.Value));
+                            DCObj.Members.Add(new PSNoteProperty("SMB1(NT LM 0.12)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB2(0x0202)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB2(0x0210)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB3(0x0300)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB3(0x0302)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB3(0x0311)", null));
+                            DCObj.Members.Add(new PSNoteProperty("SMB Signing", null));
+                            break;
+                        }
+                        else
+                        {
+                            DCObj.Members.Add(new PSNoteProperty(psPropertyInfo.Name, psPropertyInfo.Value));
+                        }
+                    }
+                    return new PSObject[] { DCObj };
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Exception caught: {0}", e);
+                    return new PSObject[] { };
+                }
+            }
         }
 
         class SchemaRecordProcessor : IRecordProcessor
@@ -3286,28 +3487,11 @@ namespace ADRecon
                 return processed.ToArray();
             }
         }
-    }
-}
 "@
-
-#Add-Type -TypeDefinition $Source -ReferencedAssemblies ([System.String[]]@(([system.reflection.assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([system.reflection.assembly]::LoadWithPartialName("System.DirectoryServices")).Location))
 
 # modified version from https://github.com/vletoux/SmbScanner/blob/master/smbscanner.ps1
 $PingCastleSMBScannerSource = @"
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Runtime.InteropServices;
-using System.Management.Automation;
 
-namespace ADRecon
-{
-    public class PingCastleScannersSMBScanner
-	{
         [StructLayout(LayoutKind.Explicit)]
 		struct SMB_Header {
 			[FieldOffset(0)]
@@ -3628,8 +3812,9 @@ namespace ADRecon
 			}
 		}
 		public static string Name { get { return "smb"; } }
-		public static PSObject GetPSObject(string computer)
+		public static PSObject GetPSObject(Object IPv4Address)
 		{
+            String computer = Convert.ToString(IPv4Address);
             PSObject DCSMBObj = new PSObject();
             if (computer == "")
             {
@@ -7296,66 +7481,7 @@ Function Get-ADRDomainController
         If ($ADDomainControllers)
         {
             Write-Verbose "[*] Total Domain Controllers: $([ADRecon.ADWSClass]::ObjectCount($ADDomainControllers))"
-            # DC Info
-            $DCObj = @()
-            $ADDomainControllers | ForEach-Object {
-                # Create the object for each instance.
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "Domain" -Value $_.Domain
-                $Obj | Add-Member -MemberType NoteProperty -Name "Site" -Value $_.Site
-                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value $_.Name
-                $Obj | Add-Member -MemberType NoteProperty -Name "IPv4Address" -Value $_.IPv4Address
-                $OSVersion = [ADRecon.ADWSClass]::CleanString($($_.OperatingSystem + " " + $_.OperatingSystemHotfix + " " + $_.OperatingSystemServicePack + " " + $_.OperatingSystemVersion))
-                $Obj | Add-Member -MemberType NoteProperty -Name "Operating System" -Value $OSVersion
-                Remove-Variable OSVersion
-                $Obj | Add-Member -MemberType NoteProperty -Name "Hostname" -Value $_.HostName
-                If ($_.OperationMasterRoles -like 'DomainNamingMaster')
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Naming" -Value $true
-                }
-                Else
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Naming" -Value $false
-                }
-                If ($_.OperationMasterRoles -like 'SchemaMaster')
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Schema" -Value $true
-                }
-                Else
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Schema" -Value $false
-                }
-                If ($_.OperationMasterRoles -like 'InfrastructureMaster')
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $true
-                }
-                Else
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $false
-                }
-                If ($_.OperationMasterRoles -like 'RIDMaster')
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "RID" -Value $true
-                }
-                Else
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "RID" -Value $false
-                }
-                If ($_.OperationMasterRoles -like 'PDCEmulator')
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "PDC" -Value $true
-                }
-                Else
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "PDC" -Value $false
-                }
-                $DCSMBObj = [ADRecon.PingCastleScannersSMBScanner]::GetPSObject($_.IPv4Address)
-                ForEach ($Property in $DCSMBObj.psobject.Properties)
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name $Property.Name -Value $Property.value
-                }
-                $DCObj += $Obj
-            }
+            $DCObj = [ADRecon.ADWSClass]::DomainControllerParser($ADDomainControllers, $Threads)
             Remove-Variable ADDomainControllers
         }
     }
@@ -7386,39 +7512,7 @@ Function Get-ADRDomainController
         If ($ADDomain.DomainControllers)
         {
             Write-Verbose "[*] Total Domain Controllers: $([ADRecon.LDAPClass]::ObjectCount($ADDomain.DomainControllers))"
-            # DC Info
-            $DCObj = @()
-            $ADDomain.DomainControllers | ForEach-Object {
-                # Create the object for each instance.
-                $Obj = New-Object PSObject
-                $Obj | Add-Member -MemberType NoteProperty -Name "Domain" -Value $_.Domain
-                $Obj | Add-Member -MemberType NoteProperty -Name "Site" -Value $_.SiteName
-                $Obj | Add-Member -MemberType NoteProperty -Name "Name" -Value ($_.Name -Split ("\."))[0]
-                $Obj | Add-Member -MemberType NoteProperty -Name "IPAddress" -Value $_.IPAddress
-                $Obj | Add-Member -MemberType NoteProperty -Name "Operating System" -Value $_.OSVersion
-                $Obj | Add-Member -MemberType NoteProperty -Name "Hostname" -Value $_.Name
-                If ($null -ne $_.Roles)
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Naming" -Value $($_.Roles.Contains("NamingRole"))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Schema" -Value $($_.Roles.Contains("SchemaRole"))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "Infra" -Value $($_.Roles.Contains("InfrastructureRole"))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "RID" -Value $($_.Roles.Contains("RidRole"))
-                    $Obj | Add-Member -MemberType NoteProperty -Name "PDC" -Value $($_.Roles.Contains("PdcRole"))
-                }
-                Else
-                {
-
-                    "Naming", "Schema", "Infra", "RID", "PDC" | ForEach-Object {
-                        $Obj | Add-Member -MemberType NoteProperty -Name $_ -Value $false
-                    }
-                }
-                $DCSMBObj = [ADRecon.PingCastleScannersSMBScanner]::GetPSObject($_.IPAddress)
-                ForEach ($Property in $DCSMBObj.psobject.Properties)
-                {
-                    $Obj | Add-Member -MemberType NoteProperty -Name $Property.Name -Value $Property.value
-                }
-                $DCObj += $Obj
-            }
+            $DCObj = [ADRecon.LDAPClass]::DomainControllerParser($ADDomain.DomainControllers, $Threads)
             Remove-Variable ADDomain
         }
     }
@@ -11466,7 +11560,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v1.2"
+    [string] $ADReconVersion = "v1.21"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535)"
 
     If ($GenExcel)
@@ -11579,17 +11673,17 @@ Function Invoke-ADRecon
     {
         $Advapi32 = Add-Type -MemberDefinition $Advapi32Def -Name "Advapi32" -Namespace ADRecon -PassThru
         $Kernel32 = Add-Type -MemberDefinition $Kernel32Def -Name "Kernel32" -Namespace ADRecon -PassThru
-        Add-Type -TypeDefinition $PingCastleSMBScannerSource
+        #Add-Type -TypeDefinition $PingCastleSMBScannerSource
         $CLR = ([System.Reflection.Assembly]::GetExecutingAssembly().ImageRuntimeVersion)[1]
         If ($Protocol -eq 'ADWS')
         {
             If ($CLR -eq "4")
             {
-                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location))
+                Add-Type -TypeDefinition $($ADWSSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location))
             }
             Else
             {
-                Add-Type -TypeDefinition $ADWSSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location)) -Language CSharpVersion3
+                Add-Type -TypeDefinition $($ADWSSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location)) -Language CSharpVersion3
             }
         }
 
@@ -11597,11 +11691,11 @@ Function Invoke-ADRecon
         {
             If ($CLR -eq "4")
             {
-                Add-Type -TypeDefinition $LDAPSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location))
+                Add-Type -TypeDefinition $($LDAPSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location))
             }
             Else
             {
-                Add-Type -TypeDefinition $LDAPSource -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location)) -Language CSharpVersion3
+                Add-Type -TypeDefinition $($LDAPSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location,([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location)) -Language CSharpVersion3
             }
         }
     }
