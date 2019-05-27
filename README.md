@@ -29,7 +29,7 @@ The following information is gathered by the tool:
 - PasswordAttributes (Experimental);
 - LAPS passwords (if implemented);
 - BitLocker Recovery Keys (if implemented);
-- ACLs (DACLs and SACLs) for the Domain, OUs, Root Containers, GPO, Users, Computers and Groups objects;
+- ACLs (DACLs and SACLs) for the Domain, OUs, Root Containers, GPO, Users, Computers and Groups objects (not included in the default collection method);
 - GPOReport (requires RSAT);
 - Kerberoast (not included in the default collection method); and
 - Domain accounts used for service accounts (requires privileged account and not included in the default collection method).
@@ -123,7 +123,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
     Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist) (Default pwd)
 
 -Collect <String>
-    Which modules to run (Comma separated; e.g Forest,Domain. Default all except Kerberoast)
+    Which modules to run (Comma separated; e.g Forest,Domain. Default all except ACLs, Kerberoast and DomainAccountsusedforServiceLogon)
     Valid values include: Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast DomainAccountsusedforServiceLogon.
 
 -OutputType <String>
