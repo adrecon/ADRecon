@@ -11817,7 +11817,7 @@ Function Invoke-ADRecon
             $ADRComputerSPNs = $true
             $ADRLAPS = $true
             $ADRBitLocker = $true
-            $ADRACLs = $true
+            #$ADRACLs = $true
             $ADRGPOReport = $true
             #$ADRKerberoast = $true
             #$ADRDomainAccountsusedforServiceLogon = $true
