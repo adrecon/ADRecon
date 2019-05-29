@@ -31,7 +31,7 @@
     - PasswordAttributes (Experimental);
     - LAPS passwords (if implemented);
     - BitLocker Recovery Keys (if implemented);
-    - ACLs (DACLs and SACLs) for the Domain, OUs, Root Containers, GPO, Users, Computers and Groups objects;
+    - ACLs (DACLs and SACLs) for the Domain, OUs, Root Containers, GPO, Users, Computers and Groups objects (not included in the default collection method);
     - GPOReport (requires RSAT);
     - Kerberoast (not included in the default collection method); and
     - Domain accounts used for service accounts (requires privileged account and not included in the default collection method).
@@ -158,8 +158,6 @@
     [-] LAPS - Needs Privileged Account
     WARNING: [*] LAPS is not implemented.
     [-] BitLocker Recovery Keys - Needs Privileged Account
-    [-] ACLs - May take some time
-    WARNING: [*] SACLs - Currently, the module is only supported with LDAP.
     [-] GPOReport - May take some time
     WARNING: [*] Run the tool using RUNAS.
     WARNING: [*] runas /user:<Domain FQDN>\<Username> /netonly powershell.exe
@@ -199,7 +197,6 @@
     [-] LAPS - Needs Privileged Account
     WARNING: [*] LAPS is not implemented.
     [-] BitLocker Recovery Keys - Needs Privileged Account
-    [-] ACLs - May take some time
     [-] GPOReport - May take some time
     WARNING: [*] Currently, the module is only supported with ADWS.
     [*] Total Execution Time (mins): <minutes>
@@ -233,7 +230,7 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast, DomainAccountsusedforServiceLogon) Valid values include: Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, GPOs, gPLinks, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon")]
+    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except ACLs, Kerberoast and DomainAccountsusedforServiceLogon) Valid values include: Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, GPOs, gPLinks, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon")]
     [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'SchemaHistory', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupChanges', 'GroupMembers', 'OUs', 'GPOs', 'gPLinks', 'DNSZones', 'DNSRecords', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'ACLs', 'GPOReport', 'Kerberoast', 'DomainAccountsusedforServiceLogon', 'Default')]
     [array] $Collect = 'Default',
 
@@ -1014,7 +1011,7 @@ namespace ADRecon
                         foreach (String ReplData in ReplValueMetaData)
                         {
                             XmlDocument ReplXML = new XmlDocument();
-                            ReplXML.LoadXml(ReplData.Replace("\x00", ""));
+                            ReplXML.LoadXml(ReplData.Replace("\x00", "").Replace("&","&amp;"));
 
                             if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
                             {
@@ -2678,7 +2675,7 @@ namespace ADRecon
                         foreach (String ReplData in ReplValueMetaData)
                         {
                             XmlDocument ReplXML = new XmlDocument();
-                            ReplXML.LoadXml(ReplData.Replace("\x00", ""));
+                            ReplXML.LoadXml(ReplData.Replace("\x00", "").Replace("&","&amp;"));
 
                             if (ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText != "1601-01-01T00:00:00Z")
                             {
@@ -2702,10 +2699,10 @@ namespace ADRecon
                             GroupChangeObj.Members.Add(new PSNoteProperty("Group DistinguishedName", CleanString(AdGroup.Properties["distinguishedname"][0])));
                             GroupChangeObj.Members.Add(new PSNoteProperty("Member DistinguishedName", CleanString(ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["pszObjectDn"].InnerText)));
                             GroupChangeObj.Members.Add(new PSNoteProperty("Action", Action));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Added Age (Days)", DaysSinceAdded));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Removed Age (Days)", DaysSinceRemoved));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Added Date", AddedDate));
-                                GroupChangeObj.Members.Add(new PSNoteProperty("Removed Date", RemovedDate));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Added Age (Days)", DaysSinceAdded));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Removed Age (Days)", DaysSinceRemoved));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Added Date", AddedDate));
+                            GroupChangeObj.Members.Add(new PSNoteProperty("Removed Date", RemovedDate));
                             GroupChangeObj.Members.Add(new PSNoteProperty("ftimeCreated", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeCreated"].InnerText));
                             GroupChangeObj.Members.Add(new PSNoteProperty("ftimeDeleted", ReplXML.SelectSingleNode("DS_REPL_VALUE_META_DATA")["ftimeDeleted"].InnerText));
                             GroupChangesList.Add( GroupChangeObj );
