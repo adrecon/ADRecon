@@ -1099,11 +1099,32 @@ namespace ADRecon
                     PSObject AdGroup = (PSObject) record;
                     List<PSObject> GroupsList = new List<PSObject>();
                     string SamAccountType = Convert.ToString(AdGroup.Members["samaccounttype"].Value);
+                    string ObjectClass = Convert.ToString(AdGroup.Members["ObjectClass"].Value);
                     string AccountType = "";
                     string GroupName = "";
                     string MemberUserName = "-";
                     string MemberName = "";
 
+                    if (ObjectClass == "foreignSecurityPrincipal")
+                    {
+                        AccountType = "foreignSecurityPrincipal";
+                        MemberUserName = ((Convert.ToString(AdGroup.Members["DistinguishedName"].Value)).Split(',')[0]).Split('=')[1];
+                        MemberName = null;
+                        Microsoft.ActiveDirectory.Management.ADPropertyValueCollection MemberGroups = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdGroup.Members["memberof"].Value;
+                        if (MemberGroups.Value != null)
+                        {
+                            foreach (String GroupMember in MemberGroups)
+                            {
+                                GroupName = ((Convert.ToString(GroupMember)).Split(',')[0]).Split('=')[1];
+                                PSObject GroupMemberObj = new PSObject();
+                                GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                                GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                                GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                                GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                                GroupsList.Add( GroupMemberObj );
+                            }
+                        }
+                    }
                     if (Groups.Contains(SamAccountType))
                     {
                         AccountType = "group";
@@ -1139,14 +1160,12 @@ namespace ADRecon
                             GroupName = PrimaryGroupID;
                         }
 
-                        {
-                            PSObject GroupMemberObj = new PSObject();
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
-                            GroupsList.Add( GroupMemberObj );
-                        }
+                        PSObject GroupMemberObj = new PSObject();
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                        GroupsList.Add( GroupMemberObj );
 
                         Microsoft.ActiveDirectory.Management.ADPropertyValueCollection MemberGroups = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdGroup.Members["memberof"].Value;
                         if (MemberGroups.Value != null)
@@ -1179,14 +1198,12 @@ namespace ADRecon
                             GroupName = PrimaryGroupID;
                         }
 
-                        {
-                            PSObject GroupMemberObj = new PSObject();
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
-                            GroupsList.Add( GroupMemberObj );
-                        }
+                        PSObject GroupMemberObj = new PSObject();
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                        GroupsList.Add( GroupMemberObj );
 
                         Microsoft.ActiveDirectory.Management.ADPropertyValueCollection MemberGroups = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdGroup.Members["memberof"].Value;
                         if (MemberGroups.Value != null)
@@ -1205,7 +1222,26 @@ namespace ADRecon
                     }
                     if (TrustAccounts.Contains(SamAccountType))
                     {
-                        // TO DO
+                        AccountType = "trust";
+                        MemberName = ((Convert.ToString(AdGroup.Members["DistinguishedName"].Value)).Split(',')[0]).Split('=')[1];
+                        MemberUserName = Convert.ToString(AdGroup.Members["sAMAccountName"].Value);
+                        String PrimaryGroupID = Convert.ToString(AdGroup.Members["primaryGroupID"].Value);
+                        try
+                        {
+                            GroupName = ADWSClass.AdGroupDictionary[ADWSClass.DomainSID + "-" + PrimaryGroupID];
+                        }
+                        catch //(Exception e)
+                        {
+                            //Console.WriteLine("Exception caught: {0}", e);
+                            GroupName = PrimaryGroupID;
+                        }
+
+                        PSObject GroupMemberObj = new PSObject();
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                        GroupsList.Add( GroupMemberObj );
                     }
                     return GroupsList.ToArray();
                 }
@@ -2780,10 +2816,28 @@ namespace ADRecon
                     SearchResult AdGroup = (SearchResult) record;
                     List<PSObject> GroupsList = new List<PSObject>();
                     string SamAccountType = AdGroup.Properties["samaccounttype"].Count != 0 ? Convert.ToString(AdGroup.Properties["samaccounttype"][0]) : "";
+                    string ObjectClass = Convert.ToString(AdGroup.Properties["objectclass"][AdGroup.Properties["objectclass"].Count-1]);
                     string AccountType = "";
                     string GroupName = "";
                     string MemberUserName = "-";
                     string MemberName = "";
+
+                    if (ObjectClass == "foreignSecurityPrincipal")
+                    {
+                        AccountType = "foreignSecurityPrincipal";
+                        MemberName = null;
+                        MemberUserName = ((Convert.ToString(AdGroup.Properties["DistinguishedName"][0])).Split(',')[0]).Split('=')[1];
+                        foreach (String GroupMember in AdGroup.Properties["memberof"])
+                        {
+                            GroupName = ((Convert.ToString(GroupMember)).Split(',')[0]).Split('=')[1];
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
+                    }
 
                     if (Groups.Contains(SamAccountType))
                     {
@@ -2816,14 +2870,12 @@ namespace ADRecon
                             GroupName = PrimaryGroupID;
                         }
 
-                        {
-                            PSObject GroupMemberObj = new PSObject();
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
-                            GroupsList.Add( GroupMemberObj );
-                        }
+                        PSObject GroupMemberObj = new PSObject();
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                        GroupsList.Add( GroupMemberObj );
 
                         foreach (String GroupMember in AdGroup.Properties["memberof"])
                         {
@@ -2852,14 +2904,12 @@ namespace ADRecon
                             GroupName = PrimaryGroupID;
                         }
 
-                        {
-                            PSObject GroupMemberObj = new PSObject();
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
-                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
-                            GroupsList.Add( GroupMemberObj );
-                        }
+                        PSObject GroupMemberObj = new PSObject();
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                        GroupsList.Add( GroupMemberObj );
 
                         foreach (String GroupMember in AdGroup.Properties["memberof"])
                         {
@@ -2874,7 +2924,26 @@ namespace ADRecon
                     }
                     if (TrustAccounts.Contains(SamAccountType))
                     {
-                        // TO DO
+                        AccountType = "trust";
+                        MemberName = ((Convert.ToString(AdGroup.Properties["DistinguishedName"][0])).Split(',')[0]).Split('=')[1];
+                        MemberUserName = Convert.ToString(AdGroup.Properties["sAMAccountName"][0]);
+                        String PrimaryGroupID = Convert.ToString(AdGroup.Properties["primaryGroupID"][0]);
+                        try
+                        {
+                            GroupName = LDAPClass.AdGroupDictionary[LDAPClass.DomainSID + "-" + PrimaryGroupID];
+                        }
+                        catch //(Exception e)
+                        {
+                            //Console.WriteLine("Exception caught: {0}", e);
+                            GroupName = PrimaryGroupID;
+                        }
+                        PSObject GroupMemberObj = new PSObject();
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                        GroupsList.Add( GroupMemberObj );
+
                     }
                     return GroupsList.ToArray();
                 }
@@ -4651,7 +4720,7 @@ Function Get-ADRExcelPivotTable
         $UsedRange = $SrcWorksheet.Range($PivotCols+$rows)
         $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $UsedRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
         Remove-Variable rows
-	Remove-Variable PivotCols
+	    Remove-Variable PivotCols
         Remove-Variable UsedRange
     }
     Remove-Variable PivotFailed
@@ -8089,7 +8158,7 @@ Function Get-ADRGroupMember
 
         Try
         {
-            $ADGroupMembers = @( Get-ADObject -LDAPFilter '(|(memberof=*)(primarygroupid=*))' -Properties DistinguishedName,memberof,primaryGroupID,sAMAccountName,samaccounttype )
+            $ADGroupMembers = @( Get-ADObject -LDAPFilter '(|(memberof=*)(primarygroupid=*))' -Properties DistinguishedName,ObjectClass,memberof,primaryGroupID,sAMAccountName,samaccounttype )
         }
         Catch
         {
@@ -8206,7 +8275,7 @@ Function Get-ADRGroupMember
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(|(memberof=*)(primarygroupid=*))"
-        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname", "dnshostname", "primarygroupid", "memberof", "samaccountname", "samaccounttype"))
+        $ObjSearcher.PropertiesToLoad.AddRange(("distinguishedname", "dnshostname", "objectclass", "primarygroupid", "memberof", "samaccountname", "samaccounttype"))
         $ObjSearcher.SearchScope = "Subtree"
 
         Try
@@ -11633,7 +11702,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v1.21"
+    [string] $ADReconVersion = "v1.22"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535)"
 
     If ($GenExcel)
