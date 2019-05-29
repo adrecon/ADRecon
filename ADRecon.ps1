@@ -1160,12 +1160,14 @@ namespace ADRecon
                             GroupName = PrimaryGroupID;
                         }
 
-                        PSObject GroupMemberObj = new PSObject();
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
-                        GroupsList.Add( GroupMemberObj );
+                        {
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
 
                         Microsoft.ActiveDirectory.Management.ADPropertyValueCollection MemberGroups = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdGroup.Members["memberof"].Value;
                         if (MemberGroups.Value != null)
@@ -1198,12 +1200,14 @@ namespace ADRecon
                             GroupName = PrimaryGroupID;
                         }
 
-                        PSObject GroupMemberObj = new PSObject();
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
-                        GroupsList.Add( GroupMemberObj );
+                        {
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
 
                         Microsoft.ActiveDirectory.Management.ADPropertyValueCollection MemberGroups = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdGroup.Members["memberof"].Value;
                         if (MemberGroups.Value != null)
@@ -1236,12 +1240,14 @@ namespace ADRecon
                             GroupName = PrimaryGroupID;
                         }
 
-                        PSObject GroupMemberObj = new PSObject();
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
-                        GroupsList.Add( GroupMemberObj );
+                        {
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
                     }
                     return GroupsList.ToArray();
                 }
@@ -2870,12 +2876,14 @@ namespace ADRecon
                             GroupName = PrimaryGroupID;
                         }
 
-                        PSObject GroupMemberObj = new PSObject();
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
-                        GroupsList.Add( GroupMemberObj );
+                        {
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
 
                         foreach (String GroupMember in AdGroup.Properties["memberof"])
                         {
@@ -2904,12 +2912,14 @@ namespace ADRecon
                             GroupName = PrimaryGroupID;
                         }
 
-                        PSObject GroupMemberObj = new PSObject();
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
-                        GroupsList.Add( GroupMemberObj );
+                        {
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
 
                         foreach (String GroupMember in AdGroup.Properties["memberof"])
                         {
@@ -2937,12 +2947,15 @@ namespace ADRecon
                             //Console.WriteLine("Exception caught: {0}", e);
                             GroupName = PrimaryGroupID;
                         }
-                        PSObject GroupMemberObj = new PSObject();
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
-                        GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
-                        GroupsList.Add( GroupMemberObj );
+
+                        {
+                            PSObject GroupMemberObj = new PSObject();
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Group Name", GroupName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member UserName", MemberUserName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("Member Name", MemberName));
+                            GroupMemberObj.Members.Add(new PSNoteProperty("AccountType", AccountType));
+                            GroupsList.Add( GroupMemberObj );
+                        }
 
                     }
                     return GroupsList.ToArray();
