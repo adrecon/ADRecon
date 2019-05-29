@@ -923,8 +923,8 @@ namespace ADRecon
                     {
                         String[] SPNArray = SPN.Split('/');
                         PSObject UserSPNObj = new PSObject();
-                        UserSPNObj.Members.Add(new PSNoteProperty("Name", AdUser.Members["Name"].Value));
-                        UserSPNObj.Members.Add(new PSNoteProperty("Username", AdUser.Members["SamAccountName"].Value));
+                        UserSPNObj.Members.Add(new PSNoteProperty("Username", CleanString(AdUser.Members["SamAccountName"].Value)));
+                        UserSPNObj.Members.Add(new PSNoteProperty("Name", CleanString(AdUser.Members["Name"].Value)));
                         UserSPNObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                         UserSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
                         UserSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
@@ -1452,7 +1452,8 @@ namespace ADRecon
                     String OperatingSystem = CleanString((AdComputer.Members["OperatingSystem"].Value != null ? AdComputer.Members["OperatingSystem"].Value : "-") + " " + AdComputer.Members["OperatingSystemHotfix"].Value + " " + AdComputer.Members["OperatingSystemServicePack"].Value + " " + AdComputer.Members["OperatingSystemVersion"].Value);
 
                     PSObject ComputerObj = new PSObject();
-                    ComputerObj.Members.Add(new PSNoteProperty("Name", AdComputer.Members["Name"].Value));
+                    ComputerObj.Members.Add(new PSNoteProperty("UserName", CleanString(AdComputer.Members["SamAccountName"].Value)));
+                    ComputerObj.Members.Add(new PSNoteProperty("Name", CleanString(AdComputer.Members["Name"].Value)));
                     ComputerObj.Members.Add(new PSNoteProperty("DNSHostName", AdComputer.Members["DNSHostName"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("Enabled", AdComputer.Members["Enabled"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("IPv4Address", AdComputer.Members["IPv4Address"].Value));
@@ -1464,11 +1465,10 @@ namespace ADRecon
                     ComputerObj.Members.Add(new PSNoteProperty("Delegation Type", DelegationType));
                     ComputerObj.Members.Add(new PSNoteProperty("Delegation Protocol", DelegationProtocol));
                     ComputerObj.Members.Add(new PSNoteProperty("Delegation Services", DelegationServices));
-                    ComputerObj.Members.Add(new PSNoteProperty("UserName", AdComputer.Members["SamAccountName"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("Primary Group ID", AdComputer.Members["primaryGroupID"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("SID", AdComputer.Members["SID"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
-                    ComputerObj.Members.Add(new PSNoteProperty("Description", AdComputer.Members["Description"].Value));
+                    ComputerObj.Members.Add(new PSNoteProperty("Description", CleanString(AdComputer.Members["Description"].Value)));
                     ComputerObj.Members.Add(new PSNoteProperty("ms-ds-CreatorSid", AdComputer.Members["ms-ds-CreatorSid"].Value));
                     ComputerObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
                     ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
@@ -1515,7 +1515,8 @@ namespace ADRecon
                         if (flag)
                         {
                             PSObject ComputerSPNObj = new PSObject();
-                            ComputerSPNObj.Members.Add(new PSNoteProperty("Name", AdComputer.Members["Name"].Value));
+                            ComputerSPNObj.Members.Add(new PSNoteProperty("UserName", CleanString(AdComputer.Members["SamAccountName"].Value)));
+                            ComputerSPNObj.Members.Add(new PSNoteProperty("Name", CleanString(AdComputer.Members["Name"].Value)));
                             ComputerSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
                             ComputerSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
                             SPNList.Add( ComputerSPNObj );
@@ -2563,8 +2564,8 @@ namespace ADRecon
                     {
                         String[] SPNArray = SPN.Split('/');
                         PSObject UserSPNObj = new PSObject();
-                        UserSPNObj.Members.Add(new PSNoteProperty("Name", AdUser.Properties["name"][0]));
-                        UserSPNObj.Members.Add(new PSNoteProperty("Username", AdUser.Properties["samaccountname"][0]));
+                        UserSPNObj.Members.Add(new PSNoteProperty("UserName", (AdUser.Properties["samaccountname"].Count != 0 ? CleanString(AdUser.Properties["samaccountname"][0]) : "")));
+                        UserSPNObj.Members.Add(new PSNoteProperty("Name", (AdUser.Properties["name"].Count != 0 ? CleanString(AdUser.Properties["name"][0]) : "")));
                         UserSPNObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                         UserSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
                         UserSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
@@ -3128,7 +3129,8 @@ namespace ADRecon
                     String OperatingSystem = CleanString((AdComputer.Properties["operatingsystem"].Count != 0 ? AdComputer.Properties["operatingsystem"][0] : "-") + " " + (AdComputer.Properties["operatingsystemhotfix"].Count != 0 ? AdComputer.Properties["operatingsystemhotfix"][0] : " ") + " " + (AdComputer.Properties["operatingsystemservicepack"].Count != 0 ? AdComputer.Properties["operatingsystemservicepack"][0] : " ") + " " + (AdComputer.Properties["operatingsystemversion"].Count != 0 ? AdComputer.Properties["operatingsystemversion"][0] : " "));
 
                     PSObject ComputerObj = new PSObject();
-                    ComputerObj.Members.Add(new PSNoteProperty("Name", (AdComputer.Properties["name"].Count != 0 ? AdComputer.Properties["name"][0] : "")));
+                    ComputerObj.Members.Add(new PSNoteProperty("UserName", (AdComputer.Properties["samaccountname"].Count != 0 ? CleanString(AdComputer.Properties["samaccountname"][0]) : "")));
+                    ComputerObj.Members.Add(new PSNoteProperty("Name", (AdComputer.Properties["name"].Count != 0 ? CleanString(AdComputer.Properties["name"][0]) : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("DNSHostName", (AdComputer.Properties["dnshostname"].Count != 0 ? AdComputer.Properties["dnshostname"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                     ComputerObj.Members.Add(new PSNoteProperty("IPv4Address", StrIPAddress));
@@ -3140,11 +3142,10 @@ namespace ADRecon
                     ComputerObj.Members.Add(new PSNoteProperty("Delegation Type", DelegationType));
                     ComputerObj.Members.Add(new PSNoteProperty("Delegation Protocol", DelegationProtocol));
                     ComputerObj.Members.Add(new PSNoteProperty("Delegation Services", DelegationServices));
-                    ComputerObj.Members.Add(new PSNoteProperty("UserName", (AdComputer.Properties["samaccountname"].Count != 0 ? AdComputer.Properties["samaccountname"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("Primary Group ID", (AdComputer.Properties["primarygroupid"].Count != 0 ? AdComputer.Properties["primarygroupid"][0] : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("SID", Convert.ToString(new SecurityIdentifier((byte[])AdComputer.Properties["objectSID"][0], 0))));
                     ComputerObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
-                    ComputerObj.Members.Add(new PSNoteProperty("Description", (AdComputer.Properties["Description"].Count != 0 ? AdComputer.Properties["Description"][0] : "")));
+                    ComputerObj.Members.Add(new PSNoteProperty("Description", (AdComputer.Properties["Description"].Count != 0 ? CleanString(AdComputer.Properties["Description"][0]) : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("ms-ds-CreatorSid", (AdComputer.Properties["ms-ds-CreatorSid"].Count != 0 ? Convert.ToString(new SecurityIdentifier((byte[])AdComputer.Properties["ms-ds-CreatorSid"][0], 0)) : "")));
                     ComputerObj.Members.Add(new PSNoteProperty("Last Logon Date", LastLogonDate));
                     ComputerObj.Members.Add(new PSNoteProperty("Password LastSet", PasswordLastSet));
@@ -3190,7 +3191,8 @@ namespace ADRecon
                         if (flag)
                         {
                             PSObject ComputerSPNObj = new PSObject();
-                            ComputerSPNObj.Members.Add(new PSNoteProperty("Name", AdComputer.Properties["name"][0]));
+                            ComputerSPNObj.Members.Add(new PSNoteProperty("UserName", (AdComputer.Properties["samaccountname"].Count != 0 ? CleanString(AdComputer.Properties["samaccountname"][0]) : "")));
+                            ComputerSPNObj.Members.Add(new PSNoteProperty("Name", (AdComputer.Properties["name"].Count != 0 ? CleanString(AdComputer.Properties["name"][0]) : "")));
                             ComputerSPNObj.Members.Add(new PSNoteProperty("Service", SPNArray[0]));
                             ComputerSPNObj.Members.Add(new PSNoteProperty("Host", SPNArray[1]));
                             SPNList.Add( ComputerSPNObj );
@@ -4595,6 +4597,7 @@ Function Get-ADRExcelPivotTable
     Catch
     {
         $PivotFailed = $true
+        Write-Verbose "[PivotCaches().Create] Failed"
         Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
     }
     If ( $PivotFailed -eq $true )
@@ -4602,11 +4605,15 @@ Function Get-ADRExcelPivotTable
         $rows = $SrcWorksheet.UsedRange.Rows.Count
         If ($SrcSheetName -eq "Computer SPNs")
         {
-            $PivotCols = "A1:B"
+            $PivotCols = "A1:C"
+        }
+        ElseIf ($SrcSheetName -eq "Computers")
+        {
+            $PivotCols = "A1:F"
         }
         ElseIf ($SrcSheetName -eq "Users")
         {
-            $PivotCols = "A1:AI"
+            $PivotCols = "A1:C"
         }
         $UsedRange = $SrcWorksheet.Range($PivotCols+$rows)
         $PivotCaches = $workbook.PivotCaches().Create([Microsoft.Office.Interop.Excel.XlPivotTableSourceType]::xlDatabase, $UsedRange, [Microsoft.Office.Interop.Excel.XlPivotTableVersionList]::xlPivotTableVersion12)
@@ -4977,7 +4984,7 @@ Function Get-ADRExcelSort
             $BeginAddress = $ExcelColumn.Address(0,0,1,1)
             $End = $False
             Do {
-                Write-Verbose "[Get-ADRExcelSort] $($ExcelColumn.Text) selected instead of $($ColumnName) in the $($worksheet.Name) worksheet."
+                #Write-Verbose "[Get-ADRExcelSort] $($ExcelColumn.Text) selected instead of $($ColumnName) in the $($worksheet.Name) worksheet."
                 $ExcelColumn = ($worksheet.Columns.FindNext($ExcelColumn))
                 $Address = $ExcelColumn.Address(0,0,1,1)
                 If ( ($Address -eq $BeginAddress) -or ($ExcelColumn.Text -eq $ColumnName) )
@@ -5325,7 +5332,7 @@ Function Export-ADRExcel
             Get-ADRExcelImport -ADFileName $ADFileName
             Remove-Variable ADFileName
 
-            Get-ADRExcelSort -ColumnName "Name"
+            Get-ADRExcelSort -ColumnName "UserName"
         }
 
         $ADFileName = -join($ReportPath,'\','Computers.csv')
@@ -5356,14 +5363,6 @@ Function Export-ADRExcel
             Remove-Variable ADFileName
         }
 
-        $ADFileName = -join($ReportPath,'\','UserSPNs.csv')
-        If (Test-Path $ADFileName)
-        {
-            Get-ADRExcelWorkbook -Name "User SPNs"
-            Get-ADRExcelImport -ADFileName $ADFileName
-            Remove-Variable ADFileName
-        }
-
         $ADFileName = -join($ReportPath,'\','Groups.csv')
         If (Test-Path $ADFileName)
         {
@@ -5382,6 +5381,14 @@ Function Export-ADRExcel
             Remove-Variable ADFileName
 
             Get-ADRExcelSort -ColumnName "Group Name"
+        }
+
+        $ADFileName = -join($ReportPath,'\','UserSPNs.csv')
+        If (Test-Path $ADFileName)
+        {
+            Get-ADRExcelWorkbook -Name "User SPNs"
+            Get-ADRExcelImport -ADFileName $ADFileName
+            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','Users.csv')
