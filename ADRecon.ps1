@@ -709,6 +709,8 @@ namespace ADRecon
                     DateTime? LastLogonDate = null;
                     DateTime? PasswordLastSet = null;
                     DateTime? AccountExpires = null;
+                    bool? AccountNotDelegated = null;
+                    bool? HasSPN = null;
 
                     try
                     {
@@ -789,35 +791,49 @@ namespace ADRecon
                             KerberosAES256 = (userKerbEncFlags & KerbEncFlags.AES256_CTS_HMAC_SHA1_96) == KerbEncFlags.AES256_CTS_HMAC_SHA1_96;
                         }
                     }
-                    if ((bool) AdUser.Members["TrustedForDelegation"].Value)
+                    if (AdUser.Members["UserAccountControl"].Value != null)
                     {
-                        DelegationType = "Unconstrained";
-                        DelegationServices = "Any";
-                    }
-                    if (AdUser.Members["msDS-AllowedToDelegateTo"] != null)
-                    {
-                        Microsoft.ActiveDirectory.Management.ADPropertyValueCollection delegateto = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdUser.Members["msDS-AllowedToDelegateTo"].Value;
-                        if (delegateto.Value != null)
+                        AccountNotDelegated = !((bool) AdUser.Members["AccountNotDelegated"].Value);
+                        if ((bool) AdUser.Members["TrustedForDelegation"].Value)
                         {
-                            DelegationType = "Constrained";
-                            foreach (var value in delegateto)
+                            DelegationType = "Unconstrained";
+                            DelegationServices = "Any";
+                        }
+                        if (AdUser.Members["msDS-AllowedToDelegateTo"] != null)
+                        {
+                            Microsoft.ActiveDirectory.Management.ADPropertyValueCollection delegateto = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdUser.Members["msDS-AllowedToDelegateTo"].Value;
+                            if (delegateto.Value != null)
                             {
-                                DelegationServices = DelegationServices + "," + Convert.ToString(value);
+                                DelegationType = "Constrained";
+                                foreach (var value in delegateto)
+                                {
+                                    DelegationServices = DelegationServices + "," + Convert.ToString(value);
+                                }
+                                DelegationServices = DelegationServices.TrimStart(',');
                             }
-                            DelegationServices = DelegationServices.TrimStart(',');
+                        }
+                        if ((bool) AdUser.Members["TrustedToAuthForDelegation"].Value == true)
+                        {
+                            DelegationProtocol = "Any";
+                        }
+                        else if (DelegationType != null)
+                        {
+                            DelegationProtocol = "Kerberos";
                         }
                     }
-                    if ((bool) AdUser.Members["TrustedToAuthForDelegation"].Value == true)
+
+                    Microsoft.ActiveDirectory.Management.ADPropertyValueCollection SPNs = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection)AdUser.Members["servicePrincipalName"].Value;
+                    if (SPNs.Value == null)
                     {
-                        DelegationProtocol = "Any";
+                        HasSPN = false;
                     }
-                    else if (DelegationType != null)
+                    else
                     {
-                        DelegationProtocol = "Kerberos";
+                        HasSPN = true;
                     }
 
                     PSObject UserObj = new PSObject();
-                    UserObj.Members.Add(new PSNoteProperty("UserName", AdUser.Members["SamAccountName"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("UserName", CleanString(AdUser.Members["SamAccountName"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("Name", CleanString(AdUser.Members["Name"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                     UserObj.Members.Add(new PSNoteProperty("Must Change Password at Logon", MustChangePasswordatLogon));
@@ -825,7 +841,7 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("Password Never Expires", AdUser.Members["PasswordNeverExpires"].Value));
                     UserObj.Members.Add(new PSNoteProperty("Reversible Password Encryption", AdUser.Members["AllowReversiblePasswordEncryption"].Value));
                     UserObj.Members.Add(new PSNoteProperty("Smartcard Logon Required", AdUser.Members["SmartcardLogonRequired"].Value));
-                    UserObj.Members.Add(new PSNoteProperty("Delegation Permitted", !((bool) AdUser.Members["AccountNotDelegated"].Value)));
+                    UserObj.Members.Add(new PSNoteProperty("Delegation Permitted", AccountNotDelegated));
                     UserObj.Members.Add(new PSNoteProperty("Kerberos DES Only", AdUser.Members["UseDESKeyOnly"].Value));
                     UserObj.Members.Add(new PSNoteProperty("Kerberos RC4", KerberosRC4));
                     UserObj.Members.Add(new PSNoteProperty("Kerberos AES-128bit", KerberosAES128));
@@ -847,6 +863,7 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("Primary GroupID", AdUser.Members["primaryGroupID"].Value));
                     UserObj.Members.Add(new PSNoteProperty("SID", AdUser.Members["SID"].Value));
                     UserObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
+                    UserObj.Members.Add(new PSNoteProperty("HasSPN", HasSPN));
                     UserObj.Members.Add(new PSNoteProperty("Description", CleanString(AdUser.Members["Description"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("Title", CleanString(AdUser.Members["Title"].Value)));
                     UserObj.Members.Add(new PSNoteProperty("Department", CleanString(AdUser.Members["Department"].Value)));
@@ -870,7 +887,7 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("whenCreated", AdUser.Members["whenCreated"].Value));
                     UserObj.Members.Add(new PSNoteProperty("whenChanged", AdUser.Members["whenChanged"].Value));
                     UserObj.Members.Add(new PSNoteProperty("DistinguishedName", CleanString(AdUser.Members["DistinguishedName"].Value)));
-                    UserObj.Members.Add(new PSNoteProperty("CanonicalName", AdUser.Members["CanonicalName"].Value));
+                    UserObj.Members.Add(new PSNoteProperty("CanonicalName", CleanString(AdUser.Members["CanonicalName"].Value)));
                     return new PSObject[] { UserObj };
                 }
                 catch (Exception e)
@@ -2303,6 +2320,7 @@ namespace ADRecon
                     bool DenyEveryone = false;
                     bool DenySelf = false;
                     String SIDHistory = "";
+                    bool? HasSPN = null;
 
                     // When the user is not allowed to query the UserAccountControl attribute.
                     if (AdUser.Properties["useraccountcontrol"].Count != 0)
@@ -2405,45 +2423,51 @@ namespace ADRecon
                             }
                         }
                     }
-                    if ((Int64) AdUser.Properties["accountExpires"][0] != (Int64) 9223372036854775807)
+                    if (AdUser.Properties["accountExpires"].Count != 0)
                     {
-                        if ((Int64) AdUser.Properties["accountExpires"][0] != (Int64) 0)
+                        if ((Int64) AdUser.Properties["accountExpires"][0] != (Int64) 9223372036854775807)
                         {
-                            try
+                            if ((Int64) AdUser.Properties["accountExpires"][0] != (Int64) 0)
                             {
-                                //https://msdn.microsoft.com/en-us/library/ms675098(v=vs.85).aspx
-                                AccountExpires = DateTime.FromFileTime((long)(AdUser.Properties["accountExpires"][0]));
-                                AccountExpirationNumofDays = ((int)((DateTime)AccountExpires - Date1).Days);
+                                try
+                                {
+                                    //https://msdn.microsoft.com/en-us/library/ms675098(v=vs.85).aspx
+                                    AccountExpires = DateTime.FromFileTime((long)(AdUser.Properties["accountExpires"][0]));
+                                    AccountExpirationNumofDays = ((int)((DateTime)AccountExpires - Date1).Days);
 
-                            }
-                            catch //(Exception e)
-                            {
-                                //    Console.WriteLine("Exception caught: {0}", e);
+                                }
+                                catch //(Exception e)
+                                {
+                                    //    Console.WriteLine("Exception caught: {0}", e);
+                                }
                             }
                         }
                     }
-                    if ((bool) TrustedforDelegation)
+                    if (AdUser.Properties["useraccountcontrol"].Count != 0)
                     {
-                        DelegationType = "Unconstrained";
-                        DelegationServices = "Any";
-                    }
-                    if (AdUser.Properties["msDS-AllowedToDelegateTo"].Count >= 1)
-                    {
-                        DelegationType = "Constrained";
-                        for (int i = 0; i < AdUser.Properties["msDS-AllowedToDelegateTo"].Count; i++)
+                        if ((bool) TrustedforDelegation)
                         {
-                            var delegateto = AdUser.Properties["msDS-AllowedToDelegateTo"][i];
-                            DelegationServices = DelegationServices + "," + Convert.ToString(delegateto);
+                            DelegationType = "Unconstrained";
+                            DelegationServices = "Any";
                         }
-                        DelegationServices = DelegationServices.TrimStart(',');
-                    }
-                    if ((bool) TrustedtoAuthforDelegation)
-                    {
-                        DelegationProtocol = "Any";
-                    }
-                    else if (DelegationType != null)
-                    {
-                        DelegationProtocol = "Kerberos";
+                        if (AdUser.Properties["msDS-AllowedToDelegateTo"].Count >= 1)
+                        {
+                            DelegationType = "Constrained";
+                            for (int i = 0; i < AdUser.Properties["msDS-AllowedToDelegateTo"].Count; i++)
+                            {
+                                var delegateto = AdUser.Properties["msDS-AllowedToDelegateTo"][i];
+                                DelegationServices = DelegationServices + "," + Convert.ToString(delegateto);
+                            }
+                            DelegationServices = DelegationServices.TrimStart(',');
+                        }
+                        if ((bool) TrustedtoAuthforDelegation)
+                        {
+                            DelegationProtocol = "Any";
+                        }
+                        else if (DelegationType != null)
+                        {
+                            DelegationProtocol = "Kerberos";
+                        }
                     }
                     if (AdUser.Properties["sidhistory"].Count >= 1)
                     {
@@ -2455,9 +2479,17 @@ namespace ADRecon
                         }
                         SIDHistory = sids.TrimStart(',');
                     }
+                    if (AdUser.Properties["serviceprincipalname"].Count == 0)
+                    {
+                        HasSPN = false;
+                    }
+                    else if (AdUser.Properties["serviceprincipalname"].Count > 0)
+                    {
+                        HasSPN = true;
+                    }
 
                     PSObject UserObj = new PSObject();
-                    UserObj.Members.Add(new PSNoteProperty("UserName", (AdUser.Properties["samaccountname"].Count != 0 ? AdUser.Properties["samaccountname"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("UserName", (AdUser.Properties["samaccountname"].Count != 0 ? CleanString(AdUser.Properties["samaccountname"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Name", (AdUser.Properties["name"].Count != 0 ? CleanString(AdUser.Properties["name"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                     UserObj.Members.Add(new PSNoteProperty("Must Change Password at Logon", MustChangePasswordatLogon));
@@ -2487,6 +2519,7 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("Primary GroupID", (AdUser.Properties["primarygroupid"].Count != 0 ? AdUser.Properties["primarygroupid"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("SID", Convert.ToString(new SecurityIdentifier((byte[])AdUser.Properties["objectSID"][0], 0))));
                     UserObj.Members.Add(new PSNoteProperty("SIDHistory", SIDHistory));
+                    UserObj.Members.Add(new PSNoteProperty("HasSPN", HasSPN));
                     UserObj.Members.Add(new PSNoteProperty("Description", (AdUser.Properties["Description"].Count != 0 ? CleanString(AdUser.Properties["Description"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Title", (AdUser.Properties["Title"].Count != 0 ? CleanString(AdUser.Properties["Title"][0]) : "")));
                     UserObj.Members.Add(new PSNoteProperty("Department", (AdUser.Properties["Department"].Count != 0 ? CleanString(AdUser.Properties["Department"][0]) : "")));
@@ -2510,7 +2543,7 @@ namespace ADRecon
                     UserObj.Members.Add(new PSNoteProperty("whenCreated", (AdUser.Properties["whencreated"].Count != 0 ? AdUser.Properties["whencreated"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("whenChanged", (AdUser.Properties["whenchanged"].Count != 0 ? AdUser.Properties["whenchanged"][0] : "")));
                     UserObj.Members.Add(new PSNoteProperty("DistinguishedName", (AdUser.Properties["distinguishedname"].Count != 0 ? CleanString(AdUser.Properties["distinguishedname"][0]) : "")));
-                    UserObj.Members.Add(new PSNoteProperty("CanonicalName", (AdUser.Properties["canonicalname"].Count != 0 ? AdUser.Properties["canonicalname"][0] : "")));
+                    UserObj.Members.Add(new PSNoteProperty("CanonicalName", (AdUser.Properties["canonicalname"].Count != 0 ? CleanString(AdUser.Properties["canonicalname"][0]) : "")));
                     return new PSObject[] { UserObj };
                 }
                 catch (Exception e)
