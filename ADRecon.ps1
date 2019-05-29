@@ -6180,7 +6180,7 @@ Function Get-ADRForest
             }
             Catch
             {
-                Write-Warning "[Get-ADRForest] Error getting Forest Context"
+                Write-Warning "[Get-ADRForest] Error getting Forest Context using Server parameter"
                 Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
                 Return $null
             }
@@ -8914,11 +8914,22 @@ Function Get-ADRDNSZone
 
         Try
         {
-            $ADDNSZones1 = Get-ADObject -LDAPFilter '(objectClass=dnsZone)' -SearchBase "DC=DomainDnsZones,$((Get-ADDomain).DistinguishedName)" -Properties Name,whenCreated,whenChanged,usncreated,usnchanged,distinguishedname
+            $ADDomain = Get-ADDomain
         }
         Catch
         {
-            Write-Warning "[Get-ADRDNSZone] Error while enumerating DomainDnsZones dnsZone Objects"
+            Write-Warning "[Get-ADRDNSZone] Error getting Domain Context"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        Try
+        {
+            $ADDNSZones1 = Get-ADObject -LDAPFilter '(objectClass=dnsZone)' -SearchBase "DC=DomainDnsZones,$($ADDomain.DistinguishedName)" -Properties Name,whenCreated,whenChanged,usncreated,usnchanged,distinguishedname
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating DC=DomainDnsZones,$($ADDomain.DistinguishedName) dnsZone Objects"
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         If ($ADDNSZones1)
@@ -8929,17 +8940,22 @@ Function Get-ADRDNSZone
 
         Try
         {
-            $ADDNSZones2 = Get-ADObject -LDAPFilter '(objectClass=dnsZone)' -SearchBase "DC=ForestDnsZones,$((Get-ADDomain).DistinguishedName)" -Properties Name,whenCreated,whenChanged,usncreated,usnchanged,distinguishedname
+            $ADDNSZones2 = Get-ADObject -LDAPFilter '(objectClass=dnsZone)' -SearchBase "DC=ForestDnsZones,DC=$($ADDomain.Forest -replace '\.',',DC=')" -Properties Name,whenCreated,whenChanged,usncreated,usnchanged,distinguishedname
         }
         Catch
         {
-            Write-Warning "[Get-ADRDNSZone] Error while enumerating DC=ForestDnsZones,$((Get-ADDomain).DistinguishedName) dnsZone Objects"
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating DC=ForestDnsZones,DC=$($ADDomain.Forest -replace '\.',',DC=') dnsZone Objects"
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         If ($ADDNSZones2)
         {
             $DNSZoneArray += $ADDNSZones2
             Remove-Variable ADDNSZones2
+        }
+
+        If ($ADDomain)
+        {
+            Remove-Variable ADDomain
         }
 
         Write-Verbose "[*] Total DNS Zones: $([ADRecon.ADWSClass]::ObjectCount($DNSZoneArray))"
@@ -9060,7 +9076,7 @@ Function Get-ADRDNSZone
         }
         Catch
         {
-            Write-Warning "[Get-ADRDNSZone] Error while enumerating DomainDnsZones dnsZone Objects."
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating $($SearchPath),$($objDomain.distinguishedName) dnsZone Objects."
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         $objSearcherPath.dispose()
@@ -9074,12 +9090,27 @@ Function Get-ADRDNSZone
         $SearchPath = "DC=ForestDnsZones"
         If ($Credential -ne [Management.Automation.PSCredential]::Empty)
         {
-            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
+            $DomainFQDN = Get-DNtoFQDN($objDomain.distinguishedName)
+            $DomainContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Domain",$($DomainFQDN),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
+            Try
+            {
+                $ADDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($DomainContext)
+            }
+            Catch
+            {
+                Write-Warning "[Get-ADRForest] Error getting Domain Context"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+                Return $null
+            }
+            Remove-Variable DomainContext
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),DC=$($ADDomain.Forest.Name -replace '\.',',DC=')", $Credential.UserName,$Credential.GetNetworkCredential().Password
         }
         Else
         {
-            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($SearchPath),$($objDomain.distinguishedName)"
+            $ADDomain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+            $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($SearchPath),DC=$($ADDomain.Forest.Name -replace '\.',',DC=')"
         }
+
         $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
         $objSearcherPath.Filter = "(objectClass=dnsZone)"
         $objSearcherPath.PageSize = $PageSize
@@ -9092,7 +9123,7 @@ Function Get-ADRDNSZone
         }
         Catch
         {
-            Write-Warning "[Get-ADRDNSZone] Error while enumerating ForestDnsZones dnsZone Objects."
+            Write-Warning "[Get-ADRDNSZone] Error while enumerating $($SearchPath),DC=$($ADDomain.Forest.Name -replace '\.',',DC=') dnsZone Objects."
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
         }
         $objSearcherPath.dispose()
@@ -9101,6 +9132,11 @@ Function Get-ADRDNSZone
         {
             $DNSZoneArray += $ADDNSZones2
             Remove-Variable ADDNSZones2
+        }
+
+        If($ADDomain)
+        {
+            Remove-Variable ADDomain
         }
 
         Write-Verbose "[*] Total DNS Zones: $([ADRecon.LDAPClass]::ObjectCount($DNSZoneArray))"
