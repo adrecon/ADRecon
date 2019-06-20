@@ -7587,7 +7587,7 @@ Function Get-ADRDomainController
     {
         Try
         {
-            $ADDomainControllers = Get-ADDomainController -Filter *
+            $ADDomainControllers = @( Get-ADDomainController -Filter * )
         }
         Catch
         {
