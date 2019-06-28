@@ -10,29 +10,36 @@ It can be run from any workstation that is connected to the environment, even ho
 
 The following information is gathered by the tool:
 
-- Forest;
-- Domain;
-- Trusts;
-- Sites;
-- Subnets;
-- Schema History;
-- Default and Fine Grained Password Policy (if implemented);
-- Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
-- Users and their attributes;
-- Service Principal Names (SPNs);
-- Groups, memberships and changes;
-- Organizational Units (OUs);
-- GroupPolicy objects and gPLink details;
-- DNS Zones and Records;
-- Printers;
-- Computers and their attributes;
-- PasswordAttributes (Experimental);
-- LAPS passwords (if implemented);
-- BitLocker Recovery Keys (if implemented);
-- ACLs (DACLs and SACLs) for the Domain, OUs, Root Containers, GPO, Users, Computers and Groups objects (not included in the default collection method);
-- GPOReport (requires RSAT);
-- Kerberoast (not included in the default collection method); and
-- Domain accounts used for service accounts (requires privileged account and not included in the default collection method).
+* Forest;
+* Domain;
+* Trusts;
+* Sites;
+* Subnets;
+* Schema History;
+* Default and Fine Grained Password Policy (if implemented);
+* Domain Controllers, SMB versions, whether SMB Signing is supported and FSMO roles;
+* Users and their attributes;
+* Service Principal Names (SPNs);
+* Groups, memberships and changes;
+* Organizational Units (OUs);
+* GroupPolicy objects and gPLink details;
+* DNS Zones and Records;
+* Printers;
+* Computers and their attributes;
+* PasswordAttributes (Experimental);
+* LAPS passwords (if implemented);
+* BitLocker Recovery Keys (if implemented);
+* ACLs (DACLs and SACLs) for the Domain, OUs, Root Containers, GPO, Users, Computers and Groups objects (not included in the default collection method);
+* GPOReport (requires RSAT);
+* Kerberoast (not included in the default collection method); and
+* Domain accounts used for service accounts (requires privileged account and not included in the default collection method).
+
+The following information is gathered by the tool from AzureAD:
+* Tenant
+* DirectoryRoles
+* Domain
+* Users
+* Groups
 
 ADRecon was presented at: [![Black Hat Arsenal Asia 2018](https://github.com/toolswatch/badges/blob/master/arsenal/asia/2018.svg)](https://www.blackhat.com/asia-18/arsenal.html#adrecon-active-directory-recon) - [Slidedeck](https://speakerdeck.com/prashant3535/adrecon-bh-asia-2018-arsenal-presentation)
 
@@ -48,15 +55,21 @@ These instructions will get you a copy of the tool up and running on your local 
 
 ### Prerequisites
 
-- .NET Framework 3.0 or later (Windows 7 includes 3.0)
-- PowerShell 2.0 or later (Windows 7 includes 2.0)
+* .NET Framework 3.0 or later (Windows 7 includes 3.0)
+* PowerShell 2.0 or later (Windows 7 includes 2.0)
+* AzureAD PowerShell Module (https://www.powershellgallery.com/packages/AzureAD/) Requires PowerShell 3.0 or later
+    * `Install-Module -Name AzureAD`
 
 ### Optional
 
-- Microsoft Excel (to generate the report)
-- Remote Server Administration Tools (RSAT):
-  - Windows 10 (https://www.microsoft.com/en-au/download/details.aspx?id=45520)
-  - Windows 7 (https://www.microsoft.com/en-au/download/details.aspx?id=7887)
+* Microsoft Excel (to generate the report)
+* Remote Server Administration Tools (RSAT):
+    * Windows 10 (October 2018 Update or 1809 and later), RSAT is included as a set of `Features on Demand`.
+        * Click on Start --> Settings --> Apps --> Apps & features --> Manage optional features --> Add a feature --> Select the following:
+            * RSAT: Active Directory Domain Services and Lightweight Directory Services Tools
+            * RSAT: Group Policy Management Tools
+    * Windows 10 (https://www.microsoft.com/en-au/download/details.aspx?id=45520)
+    * Windows 7 (https://www.microsoft.com/en-au/download/details.aspx?id=7887)
 
 ### Installing
 
@@ -87,13 +100,13 @@ PS C:\>.\ADRecon.ps1 -DomainController <IP or FQDN> -Credential <domain\username
 To run ADRecon on a non-member host using LDAP.
 
 ```
-PS C:\>.\ADRecon.ps1 -Protocol LDAP -DomainController <IP or FQDN> -Credential <domain\username>
+PS C:\>.\ADRecon.ps1 -Method LDAP -DomainController <IP or FQDN> -Credential <domain\username>
 ```
 
 To run ADRecon with specific modules on a non-member host with RSAT. (Default OutputType is STDOUT with -Collect parameter)
 
 ```
-PS C:\>.\ADRecon.ps1 -Protocol ADWS -DomainController <IP or FQDN> -Credential <domain\username> -Collect Domain, DomainControllers
+PS C:\>.\ADRecon.ps1 -Method ADWS -DomainController <IP or FQDN> -Credential <domain\username> -Collect Domain, DomainControllers
 ```
 
 To generate the ADRecon-Report.xlsx based on ADRecon output (CSV Files).
@@ -107,8 +120,8 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 ### Parameters
 
 ```
--Protocol <String>
-    Which protocol to use; ADWS (default) or LDAP
+-Method <String>
+    Which method to use; ADWS (default), LDAP or AzureAD
 
 -DomainController <String>
     Domain Controller IP Address or Domain FQDN.
@@ -124,7 +137,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -Collect <String>
     Which modules to run (Comma separated; e.g Forest,Domain. Default all except ACLs, Kerberoast and DomainAccountsusedforServiceLogon)
-    Valid values include: Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast DomainAccountsusedforServiceLogon.
+    Valid values include: Tenant, DirectoryRole, Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast DomainAccountsusedforServiceLogon.
 
 -OutputType <String>
     Output Type; Comma seperated; e.g CSV,STDOUT,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -148,14 +161,14 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 ### Future Plans
 
-- Replace System.DirectoryServices.DirectorySearch with System.DirectoryServices.Protocols and add support for LDAP STARTTLS and LDAPS (TCP port 636).
-- ~~Add Domain Trust Enumeration.~~
-- Add option to filter default ACLs.
-- ~~Gather ACLs for other objects such as Users, Group, etc.~~
-- Additional export and storage option: export to ~~STDOUT~~, SQLite, ~~xml~~, ~~json~~, ~~html~~, pdf.
-- Use the EPPlus library for Excel Report generation and remove the dependency on MS Excel.
-- List issues identified and provide recommended remediation advice based on analysis of the data.
-- Add PowerShell Core support.
+* Replace System.DirectoryServices.DirectorySearch with System.DirectoryServices.Protocols and add support for LDAP STARTTLS and LDAPS (TCP port 636).
+* ~~Add Domain Trust Enumeration.~~
+* Add option to filter default ACLs.
+* ~~Gather ACLs for other objects such as Users, Group, etc.~~
+* Additional export and storage option: export to ~~STDOUT~~, SQLite, ~~xml~~, ~~json~~, ~~html~~, pdf.
+* Use the EPPlus library for Excel Report generation and remove the dependency on MS Excel.
+* List issues identified and provide recommended remediation advice based on analysis of the data.
+* Add PowerShell Core support.
 
 ### Bugs, Issues and Feature Requests
 
