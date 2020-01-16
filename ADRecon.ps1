@@ -36,13 +36,6 @@
     * Kerberoast (not included in the default collection method); and
     * Domain accounts used for service accounts (requires privileged account and not included in the default collection method).
 
-    The following information is gathered by the tool from AzureAD:
-    * Tenant
-    * DirectoryRoles
-    * Domain
-    * Users
-    * Groups
-
     Author     : Prashant Mahajan
 
 .NOTES
@@ -69,7 +62,7 @@
     powershell.exe -nologo -executionpolicy bypass -noprofile -file ADRecon.ps1
 
 .PARAMETER Method
-	Which method to use; ADWS (default), LDAP or AzureAD
+	Which method to use; ADWS (default), LDAP
 
 .PARAMETER DomainController
 	Domain Controller IP Address or Domain FQDN.
@@ -85,7 +78,7 @@
 
 .PARAMETER Collect
     Which modules to run; Comma separated; e.g Forest,Domain (Default all except Kerberoast, DomainAccountsusedforServiceLogon)
-    Valid values include: Tenant, DirectoryRole, Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, GPOs, gPLinks, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, GPOs, gPLinks, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon.
 
 .PARAMETER OutputType
     Output Type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
@@ -221,8 +214,8 @@
 [CmdletBinding()]
 param
 (
-    [Parameter(Mandatory = $false, HelpMessage = "Which method to use; ADWS (default), LDAP or AzureAD.")]
-    [ValidateSet('ADWS', 'LDAP', 'AzureAD')]
+    [Parameter(Mandatory = $false, HelpMessage = "Which method to use; ADWS (default), LDAP")]
+    [ValidateSet('ADWS', 'LDAP')]
     [string] $Method = 'ADWS',
 
     [Parameter(Mandatory = $false, HelpMessage = "Domain Controller IP Address or Domain FQDN.")]
@@ -237,8 +230,8 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "Path for ADRecon output folder to save the CSV/XML/JSON/HTML files and the ADRecon-Report.xlsx. (The folder specified will be created if it doesn't exist)")]
     [string] $OutputDir,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except ACLs, Kerberoast and DomainAccountsusedforServiceLogon) Valid values include: AzureADTenant, Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, GPOs, gPLinks, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon")]
-    [ValidateSet('Tenant', 'DirectoryRole', 'Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'SchemaHistory', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupChanges', 'GroupMembers', 'OUs', 'GPOs', 'gPLinks', 'DNSZones', 'DNSRecords', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'ACLs', 'GPOReport', 'Kerberoast', 'DomainAccountsusedforServiceLogon', 'Default')]
+    [Parameter(Mandatory = $false, HelpMessage = "Which modules to run; Comma separated; e.g Forest,Domain (Default all except ACLs, Kerberoast and DomainAccountsusedforServiceLogon) Valid values include: Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, GPOs, gPLinks, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, ACLs, GPOReport, Kerberoast, DomainAccountsusedforServiceLogon")]
+    [ValidateSet('Forest', 'Domain', 'Trusts', 'Sites', 'Subnets', 'SchemaHistory', 'PasswordPolicy', 'FineGrainedPasswordPolicy', 'DomainControllers', 'Users', 'UserSPNs', 'PasswordAttributes', 'Groups', 'GroupChanges', 'GroupMembers', 'OUs', 'GPOs', 'gPLinks', 'DNSZones', 'DNSRecords', 'Printers', 'Computers', 'ComputerSPNs', 'LAPS', 'BitLocker', 'ACLs', 'GPOReport', 'Kerberoast', 'DomainAccountsusedforServiceLogon', 'Default')]
     [array] $Collect = 'Default',
 
     [Parameter(Mandatory = $false, HelpMessage = "Output type; Comma seperated; e.g STDOUT,CSV,XML,JSON,HTML,Excel (Default STDOUT with -Collect parameter, else CSV and Excel)")]
@@ -3621,472 +3614,6 @@ namespace ADRecon
         }
 "@
 
-$AzureADSource = @"
-// Thanks Dennis Albuquerque for the C# multithreading code
-using System;
-using System.Collections.Generic;
-using System.Management.Automation;
-using System.Threading;
-
-namespace ADRecon
-{
-    public static class AzureADClass
-    {
-		private static readonly Dictionary<string, string> Replacements = new Dictionary<string, string>()
-        {
-            //{System.Environment.NewLine, ""},
-            //{",", ";"},
-            {"\"", "'"}
-        };
-
-        public static string CleanString(Object StringtoClean)
-        {
-            // Remove extra spaces and new lines
-            string CleanedString = string.Join(" ", ((Convert.ToString(StringtoClean)).Split((string[]) null, StringSplitOptions.RemoveEmptyEntries)));
-            foreach (string Replacement in Replacements.Keys)
-            {
-                CleanedString = CleanedString.Replace(Replacement, Replacements[Replacement]);
-            }
-            return CleanedString;
-        }
-
-        public static int ObjectCount(Object[] ADRObject)
-        {
-            return ADRObject.Length;
-        }
-
-        public static Object[] TenantParser(Object[] AdTenant, int numOfThreads)
-        {
-            Object[] ADRObj = runProcessor(AdTenant, numOfThreads, "Tenant");
-            return ADRObj;
-        }
-
-        public static Object[] DirectoryRoleParser(Object[] AdDirectoryRole, int numOfThreads)
-        {
-            Object[] ADRObj = runProcessor(AdDirectoryRole, numOfThreads, "DirectoryRoles");
-            return ADRObj;
-        }
-
-        public static Object[] DomainParser(Object[] AdDomain, int numOfThreads)
-        {
-            Object[] ADRObj = runProcessor(AdDomain, numOfThreads, "Domain");
-            return ADRObj;
-        }
-
-        public static Object[] UserParser(Object[] AdUsers, int numOfThreads)
-        {
-            Object[] ADRObj = runProcessor(AdUsers, numOfThreads, "Users");
-            return ADRObj;
-        }
-
-        public static Object[] GroupParser(Object[] AdGroups, int numOfThreads)
-        {
-            Object[] ADRObj = runProcessor(AdGroups, numOfThreads, "Groups");
-            return ADRObj;
-        }
-
-        static Object[] runProcessor(Object[] arrayToProcess, int numOfThreads, string processorType)
-        {
-            int totalRecords = arrayToProcess.Length;
-            IRecordProcessor recordProcessor = recordProcessorFactory(processorType);
-            IResultsHandler resultsHandler = new SimpleResultsHandler ();
-            int numberOfRecordsPerThread = totalRecords / numOfThreads;
-            int remainders = totalRecords % numOfThreads;
-
-            Thread[] threads = new Thread[numOfThreads];
-            for (int i = 0; i < numOfThreads; i++)
-            {
-                int numberOfRecordsToProcess = numberOfRecordsPerThread;
-                if (i == (numOfThreads - 1))
-                {
-                    //last thread, do the remaining records
-                    numberOfRecordsToProcess += remainders;
-                }
-
-                //split the full array into chunks to be given to different threads
-                Object[] sliceToProcess = new Object[numberOfRecordsToProcess];
-                Array.Copy(arrayToProcess, i * numberOfRecordsPerThread, sliceToProcess, 0, numberOfRecordsToProcess);
-                ProcessorThread processorThread = new ProcessorThread(i, recordProcessor, resultsHandler, sliceToProcess);
-                threads[i] = new Thread(processorThread.processThreadRecords);
-                threads[i].Start();
-            }
-            foreach (Thread t in threads)
-            {
-                t.Join();
-            }
-
-            return resultsHandler.finalise();
-        }
-
-        static IRecordProcessor recordProcessorFactory(string name)
-        {
-            switch (name)
-            {
-                case "Tenant":
-                    return new TenantRecordProcessor();
-                case "DirectoryRoles":
-                    return new DirectoryRoleRecordProcessor();
-                case "Domain":
-                    return new DomainRecordProcessor();
-                case "Users":
-                    return new UserRecordProcessor();
-                case "Groups":
-                    return new GroupRecordProcessor();
-            }
-            throw new ArgumentException("Invalid processor type " + name);
-        }
-
-        class ProcessorThread
-        {
-            readonly int id;
-            readonly IRecordProcessor recordProcessor;
-            readonly IResultsHandler resultsHandler;
-            readonly Object[] objectsToBeProcessed;
-
-            public ProcessorThread(int id, IRecordProcessor recordProcessor, IResultsHandler resultsHandler, Object[] objectsToBeProcessed)
-            {
-                this.recordProcessor = recordProcessor;
-                this.id = id;
-                this.resultsHandler = resultsHandler;
-                this.objectsToBeProcessed = objectsToBeProcessed;
-            }
-
-            public void processThreadRecords()
-            {
-                for (int i = 0; i < objectsToBeProcessed.Length; i++)
-                {
-                    Object[] result = recordProcessor.processRecord(objectsToBeProcessed[i]);
-                    resultsHandler.processResults(result); //this is a thread safe operation
-                }
-            }
-        }
-
-        //The interface and implmentation class used to process a record (this implemmentation just returns a log type string)
-
-        interface IRecordProcessor
-        {
-            PSObject[] processRecord(Object record);
-        }
-
-        class TenantRecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    PSObject AzureADTenant = (PSObject) record;
-
-                    List<PSObject> AzureADTenantObjList = new List<PSObject>();
-                    PSObject AzureADTenantObj = new PSObject();
-                    int icount = 0;
-
-                    List<Microsoft.Open.AzureAD.Model.VerifiedDomain> VerifiedDomainsList = new List<Microsoft.Open.AzureAD.Model.VerifiedDomain>();
-                    List<string> TechnicalNotificationMailsList = new List<string>();
-                    List<Microsoft.Open.AzureAD.Model.AssignedPlan> AssignedPlanList = new List<Microsoft.Open.AzureAD.Model.AssignedPlan>();
-                    int count = 0;
-                    string TechnicalNotificationMails = null;
-
-                    Object[] ObjValues = new Object[]{
-                        "DisplayName", CleanString(AzureADTenant.Members["DisplayName"].Value)
-                    };
-
-                    for (icount = 0; icount < ObjValues.Length; icount++)
-                    {
-                        AzureADTenantObj = new PSObject();
-                        AzureADTenantObj.Members.Add(new PSNoteProperty("Category", ObjValues[icount]));
-                        AzureADTenantObj.Members.Add(new PSNoteProperty("Value", ObjValues[icount+1]));
-                        AzureADTenantObjList.Add( AzureADTenantObj );
-                        icount++;
-                    }
-
-                    if (((List<Microsoft.Open.AzureAD.Model.VerifiedDomain>) AzureADTenant.Members["VerifiedDomains"].Value).Count != 0)
-                    {
-                        VerifiedDomainsList = (List<Microsoft.Open.AzureAD.Model.VerifiedDomain>) AzureADTenant.Members["VerifiedDomains"].Value;
-                        count = 0;
-                        foreach (Microsoft.Open.AzureAD.Model.VerifiedDomain value in VerifiedDomainsList)
-                        {
-                            ObjValues = new Object[]{
-                                "VerifiedDomain(" + count + ") - Name", value.Name,
-                                "VerifiedDomain(" + count + ") - Type", value.Type,
-                                "VerifiedDomain(" + count + ") - Capabilities", value.Capabilities,
-                                "VerifiedDomain(" + count + ") - _Default", value._Default,
-                                "VerifiedDomain(" + count + ") - Initial", value.Initial,
-                                "VerifiedDomain(" + count + ") - Id", value.Id
-                            };
-                            for (icount = 0; icount < ObjValues.Length; icount++)
-                            {
-                                AzureADTenantObj = new PSObject();
-                                AzureADTenantObj.Members.Add(new PSNoteProperty("Category", ObjValues[icount]));
-                                AzureADTenantObj.Members.Add(new PSNoteProperty("Value", ObjValues[icount+1]));
-                                AzureADTenantObjList.Add( AzureADTenantObj );
-                                icount++;
-                            }
-                            count++;
-                        }
-                    }
-
-                    if (((List<string>) AzureADTenant.Members["TechnicalNotificationMails"].Value).Count != 0)
-                    {
-                        TechnicalNotificationMailsList = (List<string>) AzureADTenant.Members["TechnicalNotificationMails"].Value;
-                        foreach (string value in TechnicalNotificationMailsList)
-                        {
-                            TechnicalNotificationMails = TechnicalNotificationMails + "," + value;
-                        }
-                        TechnicalNotificationMails = TechnicalNotificationMails.TrimStart(',');
-                    }
-
-                    ObjValues = new Object[]{
-                        "DirSyncEnabled", AzureADTenant.Members["DirSyncEnabled"].Value,
-                        "CompanyLastDirSyncTime", AzureADTenant.Members["CompanyLastDirSyncTime"].Value,
-                        "Street", AzureADTenant.Members["Street"].Value,
-                        "City", AzureADTenant.Members["City"].Value,
-                        "PostalCode", AzureADTenant.Members["PostalCode"].Value,
-                        "State", AzureADTenant.Members["State"].Value,
-                        "Country", AzureADTenant.Members["Country"].Value,
-                        "CountryLetterCode", AzureADTenant.Members["CountryLetterCode"].Value,
-                        "TechnicalNotificationMails", TechnicalNotificationMails
-                    };
-                    for (icount = 0; icount < ObjValues.Length; icount++)
-                    {
-                        AzureADTenantObj = new PSObject();
-                        AzureADTenantObj.Members.Add(new PSNoteProperty("Category", ObjValues[icount]));
-                        AzureADTenantObj.Members.Add(new PSNoteProperty("Value", ObjValues[icount+1]));
-                        AzureADTenantObjList.Add( AzureADTenantObj );
-                        icount++;
-                    }
-
-                    if (((List<Microsoft.Open.AzureAD.Model.AssignedPlan>) AzureADTenant.Members["AssignedPlans"].Value).Count != 0)
-                    {
-                        AssignedPlanList = (List<Microsoft.Open.AzureAD.Model.AssignedPlan>) AzureADTenant.Members["AssignedPlans"].Value;
-                        count = 0;
-                        foreach (Microsoft.Open.AzureAD.Model.AssignedPlan value in AssignedPlanList)
-                        {
-                            ObjValues = new Object[]{
-                                "AssignedPlan(" + count + ") - AssignedTimestamp", value.AssignedTimestamp,
-                                "AssignedPlan(" + count + ") - CapabilityStatus", value.CapabilityStatus,
-                                "AssignedPlan(" + count + ") - Service", value.Service,
-                                "AssignedPlan(" + count + ") - ServicePlanId", value.ServicePlanId
-                            };
-                            for (icount = 0; icount < ObjValues.Length; icount++)
-                            {
-                                AzureADTenantObj = new PSObject();
-                                AzureADTenantObj.Members.Add(new PSNoteProperty("Category", ObjValues[icount]));
-                                AzureADTenantObj.Members.Add(new PSNoteProperty("Value", ObjValues[icount+1]));
-                                AzureADTenantObjList.Add( AzureADTenantObj );
-                                icount++;
-                            }
-                            count++;
-                        }
-                    }
-
-                    ObjValues = new Object[]{
-                        "ObjectType", AzureADTenant.Members["ObjectType"].Value,
-                        "ObjectId", AzureADTenant.Members["ObjectId"].Value
-                    };
-                    for (icount = 0; icount < ObjValues.Length; icount++)
-                    {
-                        AzureADTenantObj = new PSObject();
-                        AzureADTenantObj.Members.Add(new PSNoteProperty("Category", ObjValues[icount]));
-                        AzureADTenantObj.Members.Add(new PSNoteProperty("Value", ObjValues[icount+1]));
-                        AzureADTenantObjList.Add( AzureADTenantObj );
-                        icount++;
-                    }
-
-                    return AzureADTenantObjList.ToArray();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Exception caught: {0}", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
-        class DirectoryRoleRecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    PSObject AzureADDirectoryRole = (PSObject) record;
-
-                    PSObject AzureADDirectoryRoleObj = new PSObject();
-                    AzureADDirectoryRoleObj.Members.Add(new PSNoteProperty("DisplayName", CleanString(AzureADDirectoryRole.Members["DisplayName"].Value)));
-                    AzureADDirectoryRoleObj.Members.Add(new PSNoteProperty("RoleDisabled", AzureADDirectoryRole.Members["RoleDisabled"].Value));
-                    AzureADDirectoryRoleObj.Members.Add(new PSNoteProperty("IsSystem", AzureADDirectoryRole.Members["IsSystem"].Value));
-                    AzureADDirectoryRoleObj.Members.Add(new PSNoteProperty("Description", CleanString(AzureADDirectoryRole.Members["Description"].Value)));
-                    AzureADDirectoryRoleObj.Members.Add(new PSNoteProperty("RoleTemplateId", AzureADDirectoryRole.Members["RoleTemplateId"].Value));
-                    AzureADDirectoryRoleObj.Members.Add(new PSNoteProperty("ObjectId", AzureADDirectoryRole.Members["ObjectId"].Value));
-                    return new PSObject[] { AzureADDirectoryRoleObj };
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Exception caught: {0}", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
-        class DomainRecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    PSObject AzureADDomain = (PSObject) record;
-
-                    List<string> SupportedServicesList = new List<string>();
-                    string SupportedServices = null;
-
-                    PSObject AzureADDomainObj = new PSObject();
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("Name", CleanString(AzureADDomain.Members["Name"].Value)));
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("AuthenticationType", AzureADDomain.Members["authenticationType"].Value));
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("AvailabilityStatus", AzureADDomain.Members["availabilityStatus"].Value));
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("isAdminManaged", AzureADDomain.Members["isAdminManaged"].Value));
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("isDefault", AzureADDomain.Members["isDefault"].Value));
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("isInitial", AzureADDomain.Members["isInitial"].Value));
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("isRoot", AzureADDomain.Members["isRoot"].Value));
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("isVerified", AzureADDomain.Members["isVerified"].Value));
-
-                    if (((List<string>) AzureADDomain.Members["SupportedServices"].Value).Count != 0)
-                    {
-                        SupportedServicesList = (List<string>) AzureADDomain.Members["SupportedServices"].Value;
-                        foreach (string value in SupportedServicesList)
-                        {
-                            SupportedServices = SupportedServices + "," + value;
-                        }
-                        SupportedServices = SupportedServices.TrimStart(',');
-                    }
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("SupportedServices", SupportedServices));
-
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("ForceDeleteState", AzureADDomain.Members["ForceDeleteState"].Value));
-                    AzureADDomainObj.Members.Add(new PSNoteProperty("State", AzureADDomain.Members["State"].Value));
-                    return new PSObject[] { AzureADDomainObj };
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Exception caught: {0}", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
-        class UserRecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    PSObject AzureAdUser = (PSObject) record;
-
-                    List<Microsoft.Open.AzureAD.Model.AssignedLicense> AssignedLicensesList = new List<Microsoft.Open.AzureAD.Model.AssignedLicense>();
-                    string AssignedLicenses = null;
-
-                    PSObject AzureADUserObj = new PSObject();
-                    AzureADUserObj.Members.Add(new PSNoteProperty("UserPrincipalName", CleanString(AzureAdUser.Members["UserPrincipalName"].Value)));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("DisplayName", CleanString(AzureAdUser.Members["DisplayName"].Value)));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("Enabled", AzureAdUser.Members["AccountEnabled"].Value));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("UserType", AzureAdUser.Members["UserType"].Value));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("DirSyncEnabled", AzureAdUser.Members["DirSyncEnabled"].Value));
-
-                    if (((List<Microsoft.Open.AzureAD.Model.AssignedLicense>) AzureAdUser.Members["AssignedLicenses"].Value).Count != 0)
-                    {
-                        AssignedLicensesList = (List<Microsoft.Open.AzureAD.Model.AssignedLicense>) AzureAdUser.Members["AssignedLicenses"].Value;
-                        foreach (Microsoft.Open.AzureAD.Model.AssignedLicense value in AssignedLicensesList)
-                        {
-                            AssignedLicenses = AssignedLicenses + "," + Convert.ToString(value.SkuId);
-                        }
-                        AssignedLicenses = AssignedLicenses.TrimStart(',');
-                    }
-                    AzureADUserObj.Members.Add(new PSNoteProperty("AssignedLicenses", AssignedLicenses));
-
-                    AzureADUserObj.Members.Add(new PSNoteProperty("PasswordPolicies", AzureAdUser.Members["PasswordPolicies"].Value));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("OnPremisesSecurityIdentifier",  AzureAdUser.Members["OnPremisesSecurityIdentifier"] != null ? AzureAdUser.Members["OnPremisesSecurityIdentifier"].Value : null));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("OnPremisesDistinguishedName", CleanString(((Dictionary<string, string>) AzureAdUser.Members["ExtensionProperty"].Value)["onPremisesDistinguishedName"])));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("CreatedDateTime", ((Dictionary<string, string>) AzureAdUser.Members["ExtensionProperty"].Value)["createdDateTime"]));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("LastDirSyncTime", AzureAdUser.Members["LastDirSyncTime"].Value));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("EmployeeId", ((Dictionary<string, string>) AzureAdUser.Members["ExtensionProperty"].Value)["employeeId"]));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("userIdentities", AzureAdUser.Members["userIdentities"] != null ? AzureAdUser.Members["userIdentities"].Value : null));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("odata.type", ((Dictionary<string, string>) AzureAdUser.Members["ExtensionProperty"].Value)["odata.type"]));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("ObjectId", AzureAdUser.Members["ObjectId"].Value));
-                    AzureADUserObj.Members.Add(new PSNoteProperty("ObjectType", AzureAdUser.Members["ObjectType"].Value));
-                    return new PSObject[] { AzureADUserObj };
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Exception caught: {0}", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
-        class GroupRecordProcessor : IRecordProcessor
-        {
-            public PSObject[] processRecord(Object record)
-            {
-                try
-                {
-                    PSObject AzureADGroup = (PSObject) record;
-
-                    PSObject AzureADGroupObj = new PSObject();
-                    AzureADGroupObj.Members.Add(new PSNoteProperty("DisplayName", CleanString(AzureADGroup.Members["DisplayName"].Value)));
-                    AzureADGroupObj.Members.Add(new PSNoteProperty("DirSyncEnabled", AzureADGroup.Members["DirSyncEnabled"].Value));
-                    AzureADGroupObj.Members.Add(new PSNoteProperty("LastDirSyncTime", AzureADGroup.Members["LastDirSyncTime"].Value));
-                    AzureADGroupObj.Members.Add(new PSNoteProperty("OnPremisesSecurityIdentifier", AzureADGroup.Members["OnPremisesSecurityIdentifier"].Value));
-                    AzureADGroupObj.Members.Add(new PSNoteProperty("SecurityEnabled", AzureADGroup.Members["SecurityEnabled"].Value));
-                    AzureADGroupObj.Members.Add(new PSNoteProperty("Description", CleanString(AzureADGroup.Members["Description"].Value)));
-                    AzureADGroupObj.Members.Add(new PSNoteProperty("ObjectId", AzureADGroup.Members["ObjectId"].Value));
-                    return new PSObject[] { AzureADGroupObj };
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Exception caught: {0}", e);
-                    return new PSObject[] { };
-                }
-            }
-        }
-
-        //The interface and implmentation class used to handle the results (this implementation just writes the strings to a file)
-
-        interface IResultsHandler
-        {
-            void processResults(Object[] t);
-
-            Object[] finalise();
-        }
-
-        class SimpleResultsHandler : IResultsHandler
-        {
-            private Object lockObj = new Object();
-            private List<Object> processed = new List<Object>();
-
-            public SimpleResultsHandler()
-            {
-            }
-
-            public void processResults(Object[] results)
-            {
-                lock (lockObj)
-                {
-                    if (results.Length != 0)
-                    {
-                        for (var i = 0; i < results.Length; i++)
-                        {
-                            processed.Add((PSObject)results[i]);
-                        }
-                    }
-                }
-            }
-
-            public Object[] finalise()
-            {
-                return processed.ToArray();
-            }
-        }
-	}
-}
-"@
-
 # modified version from https://github.com/vletoux/SmbScanner/blob/master/smbscanner.ps1
 $PingCastleSMBScannerSource = @"
 
@@ -5428,35 +4955,14 @@ Function Get-ADRExcelAttributeStats
             {
                 $worksheet.Cells.Item($row, $column).Formula = "='" + $SrcWorksheet.Name + "'!" + $ExcelColumn.Address($false,$false)
             }
-            If ($_ -eq "PasswordPolicies")
-            {
-                # Remove count of "None"
-                $worksheet.Cells.Item($row, $column+1).Formula = "=COUNTIFS('" + $SrcWorksheet.Name + "'!" + $EnabledColAddress + ',"TRUE",' + "'" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + $ObjAttributes[$_] + ')' + "-COUNTIFS('" + $SrcWorksheet.Name + "'!" + $EnabledColAddress + ',"TRUE",' + "'" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + '"None"' + ')'
-            }
-            Else
-            {
-                $worksheet.Cells.Item($row, $column+1).Formula = "=COUNTIFS('" + $SrcWorksheet.Name + "'!" + $EnabledColAddress + ',"TRUE",' + "'" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + $ObjAttributes[$_] + ')'
-            }
+            $worksheet.Cells.Item($row, $column+1).Formula = "=COUNTIFS('" + $SrcWorksheet.Name + "'!" + $EnabledColAddress + ',"TRUE",' + "'" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + $ObjAttributes[$_] + ')'
             $worksheet.Cells.Item($row, $column+2).Formula = '=IFERROR(G' + $i + '/VLOOKUP("Enabled",A3:B6,2,FALSE),0)'
-            If ($_ -eq "PasswordPolicies")
-            {
-                # Remove count of "None"
-                $worksheet.Cells.Item($row, $column+3).Formula = "=COUNTIFS('" + $SrcWorksheet.Name + "'!" + $EnabledColAddress + ',"FALSE",' + "'" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + $ObjAttributes[$_] + ')' + "-COUNTIFS('" + $SrcWorksheet.Name + "'!" + $EnabledColAddress + ',"FALSE",' + "'" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + '"None"' + ')'
-            }
-            Else
-            {
-                $worksheet.Cells.Item($row, $column+3).Formula = "=COUNTIFS('" + $SrcWorksheet.Name + "'!" + $EnabledColAddress + ',"FALSE",' + "'" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + $ObjAttributes[$_] + ')'
-            }
+            $worksheet.Cells.Item($row, $column+3).Formula = "=COUNTIFS('" + $SrcWorksheet.Name + "'!" + $EnabledColAddress + ',"FALSE",' + "'" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + $ObjAttributes[$_] + ')'
             $worksheet.Cells.Item($row, $column+4).Formula = '=IFERROR(I' + $i + '/VLOOKUP("Disabled",A3:B6,2,FALSE),0)'
-            If ( ($_ -eq "SIDHistory") -or ($_ -eq "ms-ds-CreatorSid") -or ($_ -eq "AssignedLicenses"))
+            If ( ($_ -eq "SIDHistory") -or ($_ -eq "ms-ds-CreatorSid") )
             {
                 # Remove count of FieldName
                 $worksheet.Cells.Item($row, $column+5).Formula = "=COUNTIF('" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + $ObjAttributes[$_] + ')-1'
-            }
-            ElseIf ($_ -eq "PasswordPolicies")
-            {
-                # Remove count of "None" and FieldName
-                $worksheet.Cells.Item($row, $column+5).Formula = "=COUNTIF('" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + $ObjAttributes[$_] + ')' + "-COUNTIF('" + $SrcWorksheet.Name + "'!" + $ColAddress + ',' + '"None"' + ')-1'
             }
             Else
             {
@@ -5708,23 +5214,6 @@ Function Export-ADRExcel
             $workbook.Worksheets.Item(1).UsedRange.EntireColumn.AutoFit() | Out-Null
         }
 
-        $ADFileName = -join($ReportPath,'\','AzureADTenant.csv')
-        If (Test-Path $ADFileName)
-        {
-            Get-ADRExcelWorkbook -Name "AzureAD-Tenant"
-            Get-ADRExcelImport -ADFileName $ADFileName
-            Remove-Variable ADFileName
-            $DomainName = "AzureAD-"
-        }
-
-        $ADFileName = -join($ReportPath,'\','AzureADDirectoryRoles.csv')
-        If (Test-Path $ADFileName)
-        {
-            Get-ADRExcelWorkbook -Name "AzureAD-DirectoryRoles"
-            Get-ADRExcelImport -ADFileName $ADFileName
-            Remove-Variable ADFileName
-        }
-
         $ADFileName = -join($ReportPath,'\','Forest.csv')
         If (Test-Path $ADFileName)
         {
@@ -5742,15 +5231,6 @@ Function Export-ADRExcel
             Remove-Variable ADFileName
             $DomainName = -join($DomainObj[0].Value,"-")
             Remove-Variable DomainObj
-        }
-
-        $ADFileName = -join($ReportPath,'\','AzureADDomain.csv')
-        If (Test-Path $ADFileName)
-        {
-            Get-ADRExcelWorkbook -Name "AzureAD-Domain"
-            Get-ADRExcelImport -ADFileName $ADFileName
-            $DomainName = "AzureAD-"
-            Remove-Variable ADFileName
         }
 
         $ADFileName = -join($ReportPath,'\','Trusts.csv')
@@ -6049,16 +5529,6 @@ Function Export-ADRExcel
             Get-ADRExcelSort -ColumnName "DistinguishedName"
         }
 
-        $ADFileName = -join($ReportPath,'\','AzureADGroups.csv')
-        If (Test-Path $ADFileName)
-        {
-            Get-ADRExcelWorkbook -Name "AzureAD-Groups"
-            Get-ADRExcelImport -ADFileName $ADFileName
-            Remove-Variable ADFileName
-
-            Get-ADRExcelSort -ColumnName "DisplayName"
-        }
-
         $ADFileName = -join($ReportPath,'\','GroupMembers.csv')
         If (Test-Path $ADFileName)
         {
@@ -6085,33 +5555,6 @@ Function Export-ADRExcel
             Remove-Variable ADFileName
 
             Get-ADRExcelSort -ColumnName "UserName"
-
-            $worksheet = $workbook.Worksheets.Item(1)
-
-            # Freeze First Row and Column
-            $worksheet.Select()
-            $worksheet.Application.ActiveWindow.splitcolumn = 1
-            $worksheet.Application.ActiveWindow.splitrow = 1
-            $worksheet.Application.ActiveWindow.FreezePanes = $true
-
-            $worksheet.Cells.Item(1,3).Interior.ColorIndex = 5
-            $worksheet.Cells.Item(1,3).font.ColorIndex = 2
-            # Set Filter to Enabled Accounts only
-            $worksheet.UsedRange.Select() | Out-Null
-            $excel.Selection.AutoFilter(3,$true) | Out-Null
-            $worksheet.Cells.Item(1,1).Select() | Out-Null
-            Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
-            Remove-Variable worksheet
-        }
-
-        $ADFileName = -join($ReportPath,'\','AzureADUsers.csv')
-        If (Test-Path $ADFileName)
-        {
-            Get-ADRExcelWorkbook -Name "AzureAD-Users"
-            Get-ADRExcelImport -ADFileName $ADFileName
-            Remove-Variable ADFileName
-
-            Get-ADRExcelSort -ColumnName "UserPrincipalName"
 
             $worksheet = $workbook.Worksheets.Item(1)
 
@@ -6339,30 +5782,6 @@ Function Export-ADRExcel
             $excel.Windows.Item(1).Displaygridlines = $false
         }
 
-        # AzureADUser Stats
-        $ADFileName = -join($ReportPath,'\','AzureADUsers.csv')
-        If (Test-Path $ADFileName)
-        {
-            Get-ADRExcelWorkbook -Name "AzureAD-User Stats"
-            Remove-Variable ADFileName
-
-            $ObjAttributes = New-Object System.Collections.Specialized.OrderedDictionary
-            $ObjAttributes.Add("DirSyncEnabled",'"TRUE"')
-            $ObjAttributes.Add("AssignedLicenses",'"*"')
-            $ObjAttributes.Add("PasswordPolicies",'"*"')
-
-            Get-ADRExcelAttributeStats -SrcSheetName "AzureAD-Users" -Title1 "User Accounts in AzureAD" -PivotTableName "AzureADUser Accounts Status" -PivotRows "Enabled" -PivotValues "UserPrincipalName" -PivotPercentage "UserPrincipalName"  -Title2 "Status of User Accounts in AzureAD" -ObjAttributes $ObjAttributes
-
-            Get-ADRExcelChart -ChartType "xlPie" -ChartLayout 3 -ChartTitle "User Accounts in AzureAD" -RangetoCover "A9:D21" -ChartData $workbook.Worksheets.Item(1).Range("A3:A4,B3:B4")
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(8,1) , "" , "AzureAD-Users!A1", "", "Raw Data") | Out-Null
-
-            Get-ADRExcelChart -ChartType "xlBarClustered" -ChartLayout 1 -ChartTitle "Status of User Accounts in AzureAD" -RangetoCover "F9:L21" -ChartData $workbook.Worksheets.Item(1).Range("F2:F5,G2:G5")
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(8,6) , "" , "AzureAD-Users!A1", "", "Raw Data") | Out-Null
-
-            $workbook.Worksheets.Item(1).UsedRange.EntireColumn.AutoFit() | Out-Null
-            $excel.Windows.Item(1).Displaygridlines = $false
-        }
-
         # Create Table of Contents
         Get-ADRExcelWorkbook -Name "Table of Contents"
         $worksheet = $workbook.Worksheets.Item(1)
@@ -6452,100 +5871,6 @@ Function Export-ADRExcel
     }
 }
 
-Function Get-ADRAzureADTenant
-{
-<#
-.SYNOPSIS
-    Returns information of the current AzureAD Tenant.
-
-.DESCRIPTION
-    Returns information of the current AzureAD Tenant.
-
-.PARAMETER Method
-    [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
-
-.PARAMETER Threads
-    [int]
-    The number of threads to use during processing of objects. Default 10.
-
-.OUTPUTS
-    PSObject.
-#>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Method,
-
-        [Parameter(Mandatory = $false)]
-        [int] $Threads = 10
-    )
-
-    If ($Method -eq 'AzureAD')
-    {
-        $AzureADTenant = @( Get-AzureADTenantDetail -All $true )
-        If ($AzureADTenant)
-        {
-            $TenantObj = [ADRecon.AzureADClass]::TenantParser($AzureADTenant, $Threads)
-        }
-    }
-
-    If ($TenantObj)
-    {
-        Return $TenantObj
-    }
-    Else
-    {
-        Return $null
-    }
-}
-
-Function Get-ADRAzureADDirectoryRole
-{
-<#
-.SYNOPSIS
-    Returns all directory roles in the current (or specified) AzureAD.
-
-.DESCRIPTION
-    Returns all directory roles in the current (or specified) AzureAD.
-
-.PARAMETER Method
-    [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
-
-.PARAMETER Threads
-    [int]
-    The number of threads to use during processing of objects. Default 10.
-
-.OUTPUTS
-    PSObject.
-#>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Method,
-
-        [Parameter(Mandatory = $false)]
-        [int] $Threads = 10
-    )
-
-    If ($Method -eq 'AzureAD')
-    {
-        $AzureADDirectoryRoles = @( Get-AzureADDirectoryRole )
-        If ($AzureADDirectoryRoles)
-        {
-            $DirectoryRoleObj = [ADRecon.AzureADClass]::DirectoryRoleParser($AzureADDirectoryRoles, $Threads)
-        }
-    }
-
-    If ($DirectoryRoleObj)
-    {
-        Return $DirectoryRoleObj
-    }
-    Else
-    {
-        Return $null
-    }
-}
-
 Function Get-ADRDomain
 {
 <#
@@ -6557,7 +5882,7 @@ Function Get-ADRDomain
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -6927,15 +6252,6 @@ Function Get-ADRDomain
         }
     }
 
-    If ($Method -eq 'AzureAD')
-    {
-        $AzureADDomain = @( Get-AzureADDomain )
-        If ($AzureADDomain)
-        {
-            $DomainObj = [ADRecon.AzureADClass]::DomainParser($AzureADDomain, $Threads)
-        }
-    }
-
     If ($DomainObj)
     {
         Return $DomainObj
@@ -6957,7 +6273,7 @@ Function Get-ADRForest
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -7465,7 +6781,7 @@ Function Get-ADRTrust
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -7630,7 +6946,7 @@ Function Get-ADRSite
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -7766,7 +7082,7 @@ Function Get-ADRSubnet
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -7905,7 +7221,7 @@ Function Get-ADRSchemaHistory
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -8020,7 +7336,7 @@ Function Get-ADRDefaultPasswordPolicy
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -8157,7 +7473,7 @@ Function Get-ADRFineGrainedPasswordPolicy
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -8284,7 +7600,7 @@ Function Get-ADRDomainController
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -8382,7 +7698,7 @@ Function Get-ADRUser
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER date
     [DateTime]
@@ -8558,26 +7874,9 @@ Function Get-ADRUser
         }
     }
 
-    If ($Method -eq 'AzureAD')
-    {
-        $AzureADUsers = Get-AzureADUser -All $true
-        If($AzureADUsers)
-        {
-            Write-Verbose "[*] Total Users: $([ADRecon.AzureADClass]::ObjectCount($AzureADUsers))"
-            $UserObj = [ADRecon.AzureADClass]::UserParser($AzureADUsers, $Threads)
-        }
-    }
-
     If ($UserObj)
     {
-        If ($Method -eq "AzureAD")
-        {
-            Export-ADR -ADRObj $UserObj -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "AzureADUsers"
-        }
-        Else
-        {
-            Export-ADR -ADRObj $UserObj -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Users"
-        }
+        Export-ADR -ADRObj $UserObj -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Users"
         Remove-Variable UserObj
     }
     If ($UserSPNObj)
@@ -8599,7 +7898,7 @@ Function Get-ADRPasswordAttributes
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -8700,7 +7999,7 @@ Function Get-ADRGroup
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER date
     [DateTime]
@@ -8831,26 +8130,9 @@ Function Get-ADRGroup
         }
     }
 
-    If ($Method -eq 'AzureAD')
-    {
-        $AzureADGroups = @( Get-AzureADGroup -All $true )
-        If($AzureADGroups)
-        {
-            Write-Verbose "[*] Total Groups: $([ADRecon.AzureADClass]::ObjectCount($AzureADGroups))"
-            $GroupObj = [ADRecon.AzureADClass]::GroupParser($AzureADGroups, $Threads)
-        }
-    }
-
     If ($GroupObj)
     {
-        If ($Method -eq "AzureAD")
-        {
-            Export-ADR -ADRObj $GroupObj -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "AzureADGroups"
-        }
-        Else
-        {
-            Export-ADR -ADRObj $GroupObj -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Groups"
-        }
+        Export-ADR -ADRObj $GroupObj -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Groups"
         Remove-Variable GroupObj
     }
 
@@ -8872,7 +8154,7 @@ Function Get-ADRGroupMember
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -9093,7 +8375,7 @@ Function Get-ADROU
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -9194,7 +8476,7 @@ Function Get-ADRGPO
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -9299,7 +8581,7 @@ Function Get-ADRGPLink
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -9710,7 +8992,7 @@ Function Get-ADRDNSZone
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -10135,7 +9417,7 @@ Function Get-ADRPrinter
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -10240,7 +9522,7 @@ Function Get-ADRComputer
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER date
     [DateTime]
@@ -10429,7 +9711,7 @@ Function Get-ADRLAPSCheck
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -10543,7 +9825,7 @@ Function Get-ADRBitLocker
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -10794,7 +10076,7 @@ Function ConvertFrom-SID
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER ObjectSid
     Specifies one or more SIDs to convert.
@@ -11087,7 +10369,7 @@ Function Get-ADRACL
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -11434,7 +10716,7 @@ Function Get-ADRGPOReport
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER UseAltCreds
     [bool]
@@ -11777,7 +11059,7 @@ Function Get-ADRKerberoast
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -11938,7 +11220,7 @@ Function Get-ADRDomainAccountsusedforServiceLogon
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
     [DirectoryServices.DirectoryEntry]
@@ -12305,7 +11587,7 @@ Function Get-ADRAbout
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER date
     [DateTime]
@@ -12387,7 +11669,7 @@ Function Invoke-ADRecon
 
 .PARAMETER Method
     [string]
-    Which method to use; ADWS (default), LDAP or AzureAD.
+    Which method to use; ADWS (default), LDAP.
 
 .PARAMETER Collect
     [array]
@@ -12433,7 +11715,7 @@ Function Invoke-ADRecon
         [string] $GenExcel,
 
         [Parameter(Mandatory = $false)]
-        [ValidateSet('ADWS', 'LDAP', 'AzureAD')]
+        [ValidateSet('ADWS', 'LDAP')]
         [string] $Method = 'ADWS',
 
         [Parameter(Mandatory = $true)]
@@ -12467,7 +11749,7 @@ Function Invoke-ADRecon
         [bool] $UseAltCreds = $false
     )
 
-    [string] $ADReconVersion = "v1.23"
+    [string] $ADReconVersion = "v1.24"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535)"
 
     If ($GenExcel)
@@ -12580,41 +11862,6 @@ Function Invoke-ADRecon
         }
     }
 
-    # Import AzureAD module
-    If ($Method -eq 'AzureAD')
-    {
-        If (Get-Module -ListAvailable -Name AzureAD)
-        {
-            Try
-            {
-                # Suppress verbose output on module import
-                $SaveVerbosePreference = $script:VerbosePreference;
-                $script:VerbosePreference = 'SilentlyContinue';
-                Import-Module AzureAD -WarningAction Stop -ErrorAction Stop | Out-Null
-                If ($SaveVerbosePreference)
-                {
-                    $script:VerbosePreference = $SaveVerbosePreference
-                    Remove-Variable SaveVerbosePreference
-                }
-            }
-            Catch
-            {
-                Write-Warning "[Invoke-ADRecon] Error importing AzureAD Module. Exiting"
-                If ($SaveVerbosePreference)
-                {
-                    $script:VerbosePreference = $SaveVerbosePreference
-                    Remove-Variable SaveVerbosePreference
-                }
-                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-                Return $null
-            }
-        }
-        Else
-        {
-            Write-Warning "[Invoke-ADRecon] AzureAD Module is not installed. Run Install-Module -Name AzureAD to continue"
-        }
-    }
-
     # Compile C# code
     # Suppress Debug output
     $SaveDebugPreference = $script:DebugPreference
@@ -12706,25 +11953,6 @@ Function Invoke-ADRecon
                 )) -Language CSharpVersion3
             }
         }
-        If ($Method -eq 'AzureAD')
-        {
-            $AzureADModulePath = (Get-Module -ListAvailable AzureAD).path | Split-Path
-            If ($CLR -eq "4")
-            {
-                Add-Type -TypeDefinition $($AzureADSource) -ReferencedAssemblies ([System.String[]]@(
-                    ([System.Reflection.Assembly]::LoadWithPartialName("System.ComponentModel.DataAnnotations")).Location
-                    ($AzureADModulePath + "\Microsoft.Open.AzureAD16.Graph.Client.dll")
-                ))
-            }
-            Else
-            {
-                Add-Type -TypeDefinition $($AzureADSource) -ReferencedAssemblies ([System.String[]]@(
-                    ([System.Reflection.Assembly]::LoadWithPartialName("System.ComponentModel.DataAnnotations")).Location
-                    ($AzureADModulePath + "\Microsoft.Open.AzureAD16.Graph.Client.dll")
-                ))
-            }
-            Remove-Variable AzureADModulePath
-        }
     }
     Catch
     {
@@ -12757,29 +11985,26 @@ Function Invoke-ADRecon
         }
     }
 
-    If ($Method -ne "AzureAD")
+    If ($UseAltCreds -and (($DomainController -eq "") -or ($Credential -eq [Management.Automation.PSCredential]::Empty)))
     {
-        If ($UseAltCreds -and (($DomainController -eq "") -or ($Credential -eq [Management.Automation.PSCredential]::Empty)))
-        {
 
-            If (($DomainController -ne "") -and ($Credential -eq [Management.Automation.PSCredential]::Empty))
+        If (($DomainController -ne "") -and ($Credential -eq [Management.Automation.PSCredential]::Empty))
+        {
+            Try
             {
-                Try
-                {
-                    $Credential = Get-Credential
-                }
-                Catch
-                {
-                    Write-Output "[Invoke-ADRecon] $($_.Exception.Message)"
-                    Return $null
-                }
+                $Credential = Get-Credential
             }
-            Else
+            Catch
             {
-                Write-Output "Run Get-Help .\ADRecon.ps1 -Examples for additional information."
-                Write-Output "[Invoke-ADRecon] Use the -DomainController and -Credential parameter."`n
+                Write-Output "[Invoke-ADRecon] $($_.Exception.Message)"
                 Return $null
             }
+        }
+        Else
+        {
+            Write-Output "Run Get-Help .\ADRecon.ps1 -Examples for additional information."
+            Write-Output "[Invoke-ADRecon] Use the -DomainController and -Credential parameter."`n
+            Return $null
         }
     }
 
@@ -12787,8 +12012,6 @@ Function Invoke-ADRecon
 
     Switch ($Collect)
     {
-        'Tenant' { $ADRAzureADTenant = $true }
-        'DirectoryRole' { $ADRAzureADDirectoryRole = $true }
         'Forest' { $ADRForest = $true }
         'Domain' {$ADRDomain = $true }
         'Trusts' { $ADRTrust = $true }
@@ -12824,46 +12047,35 @@ Function Invoke-ADRecon
         'DomainAccountsusedforServiceLogon' { $ADRDomainAccountsusedforServiceLogon = $true }
         'Default'
         {
-            If ($Method -ne "AzureAD")
-            {
-                $ADRForest = $true
-                $ADRDomain = $true
-                $ADRTrust = $true
-                $ADRSite = $true
-                $ADRSubnet = $true
-                $ADRSchemaHistory = $true
-                $ADRPasswordPolicy = $true
-                $ADRFineGrainedPasswordPolicy = $true
-                $ADRDomainControllers = $true
-                $ADRUsers = $true
-                $ADRUserSPNs = $true
-                $ADRPasswordAttributes = $true
-                $ADRGroups = $true
-                $ADRGroupMembers = $true
-                $ADRGroupChanges = $true
-                $ADROUs = $true
-                $ADRGPOs = $true
-                $ADRgPLinks = $true
-                $ADRDNSZones = $true
-                $ADRDNSRecords = $true
-                $ADRPrinters = $true
-                $ADRComputers = $true
-                $ADRComputerSPNs = $true
-                $ADRLAPS = $true
-                $ADRBitLocker = $true
-                #$ADRACLs = $true
-                $ADRGPOReport = $true
-                #$ADRKerberoast = $true
-                #$ADRDomainAccountsusedforServiceLogon = $true
-            }
-            Else
-            {
-                $ADRTenant = $true
-                $ADRDirectoryRole = $true
-                $ADRDomain = $true
-                $ADRUsers = $true
-                $ADRGroups = $true
-            }
+            $ADRForest = $true
+            $ADRDomain = $true
+            $ADRTrust = $true
+            $ADRSite = $true
+            $ADRSubnet = $true
+            $ADRSchemaHistory = $true
+            $ADRPasswordPolicy = $true
+            $ADRFineGrainedPasswordPolicy = $true
+            $ADRDomainControllers = $true
+            $ADRUsers = $true
+            $ADRUserSPNs = $true
+            $ADRPasswordAttributes = $true
+            $ADRGroups = $true
+            $ADRGroupMembers = $true
+            $ADRGroupChanges = $true
+            $ADROUs = $true
+            $ADRGPOs = $true
+            $ADRgPLinks = $true
+            $ADRDNSZones = $true
+            $ADRDNSRecords = $true
+            $ADRPrinters = $true
+            $ADRComputers = $true
+            $ADRComputerSPNs = $true
+            $ADRLAPS = $true
+            $ADRBitLocker = $true
+            #$ADRACLs = $true
+            $ADRGPOReport = $true
+            #$ADRKerberoast = $true
+            #$ADRDomainAccountsusedforServiceLogon = $true
 
             If ($OutputType -eq "Default")
             {
@@ -13096,65 +12308,14 @@ Function Invoke-ADRecon
         Write-Debug "LDAP Bing Successful"
     }
 
-    If ($Method -eq 'AzureAD')
-    {
-        Try
-        {
-            Write-Output "[Invoke-ADRecon] AzureAD Module is installed. Logging in ..."
-            If ($Credential -eq [Management.Automation.PSCredential]::Empty)
-            {
-                Connect-AzureAD | Out-Null
-            }
-            Else
-            {
-                Connect-AzureAD -Credential $Credential | Out-Null
-            }
-        }
-        Catch
-        {
-            Write-Warning "[Invoke-ADRecon] Error authenticating to AzureAD ... Exiting"
-            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-            Return $null
-        }
-    }
-
     Write-Output "[*] Commencing - $date"
-    If ($ADRTenant)
-    {
-        Write-Output "[-] Tenant"
-        $ADRObject = Get-ADRAzureADTenant -Method $Method -Threads $Threads
-        If ($ADRObject)
-        {
-            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "AzureADTenant"
-            Remove-Variable ADRObject
-        }
-        Remove-Variable ADRTenant
-    }
-    If ($ADRDirectoryRole)
-    {
-        Write-Output "[-] Directory Role"
-        $ADRObject = Get-ADRAzureADDirectoryRole -Method $Method -Threads $Threads
-        If ($ADRObject)
-        {
-            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "AzureADDirectoryRoles"
-            Remove-Variable ADRObject
-        }
-        Remove-Variable ADRDirectoryRole
-    }
     If ($ADRDomain)
     {
         Write-Output "[-] Domain"
         $ADRObject = Get-ADRDomain -Method $Method -objDomain $objDomain -objDomainRootDSE $objDomainRootDSE -DomainController $DomainController -Credential $Credential
         If ($ADRObject)
         {
-            If ($Method -eq "AzureAD")
-            {
-                Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "AzureADDomain"
-            }
-            Else
-            {
-                Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Domain"
-            }
+            Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "Domain"
             Remove-Variable ADRObject
         }
         Remove-Variable ADRDomain
@@ -13497,11 +12658,6 @@ Function Invoke-ADRecon
     {
         $objDomain.Dispose()
         $objDomainRootDSE.Dispose()
-    }
-
-    If ($Method -eq 'AzureAD')
-    {
-        Disconnect-AzureAD
     }
 
     If ($ADROutputDir)

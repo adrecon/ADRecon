@@ -34,13 +34,6 @@ The following information is gathered by the tool:
 * Kerberoast (not included in the default collection method); and
 * Domain accounts used for service accounts (requires privileged account and not included in the default collection method).
 
-The following information is gathered by the tool from AzureAD:
-* Tenant
-* DirectoryRoles
-* Domain
-* Users
-* Groups
-
 ADRecon was presented at: [![Black Hat Arsenal Asia 2018](https://github.com/toolswatch/badges/blob/master/arsenal/asia/2018.svg)](https://www.blackhat.com/asia-18/arsenal.html#adrecon-active-directory-recon) - [Slidedeck](https://speakerdeck.com/prashant3535/adrecon-bh-asia-2018-arsenal-presentation)
 
 [![Black Hat Arsenal USA 2018](https://github.com/toolswatch/badges/blob/master/arsenal/usa/2018.svg)](https://www.blackhat.com/us-18/arsenal/schedule/index.html#adrecon-active-directory-recon-11912) | [![DEFCON 26 Demolabs](https://hackwith.github.io/badges/defcon/26/demolabs.svg)](https://www.defcon.org/html/defcon-26/dc-26-demolabs.html) - [Slidedeck](https://speakerdeck.com/prashant3535/adrecon-bh-usa-2018-arsenal-and-def-con-26-demo-labs-presentation)
@@ -57,8 +50,6 @@ These instructions will get you a copy of the tool up and running on your local 
 
 * .NET Framework 3.0 or later (Windows 7 includes 3.0)
 * PowerShell 2.0 or later (Windows 7 includes 2.0)
-* AzureAD PowerShell Module (https://www.powershellgallery.com/packages/AzureAD/) Requires PowerShell 3.0 or later
-    * `Install-Module -Name AzureAD`
 
 ### Optional
 
@@ -121,7 +112,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 ```
 -Method <String>
-    Which method to use; ADWS (default), LDAP or AzureAD
+    Which method to use; ADWS (default), LDAP
 
 -DomainController <String>
     Domain Controller IP Address or Domain FQDN.
@@ -137,7 +128,7 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -Collect <String>
     Which modules to run (Comma separated; e.g Forest,Domain. Default all except ACLs, Kerberoast and DomainAccountsusedforServiceLogon)
-    Valid values include: Tenant, DirectoryRole, Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast DomainAccountsusedforServiceLogon.
+    Valid values include: Forest, Domain, Trusts, Sites, Subnets, SchemaHistory, PasswordPolicy, FineGrainedPasswordPolicy, DomainControllers, Users, UserSPNs, PasswordAttributes, Groups, GroupChanges, GroupMembers, OUs, ACLs, GPOs, gPLinks, GPOReport, DNSZones, DNSRecords, Printers, Computers, ComputerSPNs, LAPS, BitLocker, Kerberoast DomainAccountsusedforServiceLogon.
 
 -OutputType <String>
     Output Type; Comma seperated; e.g CSV,STDOUT,Excel (Default STDOUT with -Collect parameter, else CSV and Excel).
