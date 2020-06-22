@@ -984,7 +984,7 @@ namespace ADRecon
 
                     if (AdGroup.Members["managedBy"].Value != null)
                     {
-                        ManagedBy = (ManagedByValue.Split(',')[0]).Split('=')[1];
+                        ManagedBy = (ManagedByValue.Split(new string[] { "CN=" },StringSplitOptions.RemoveEmptyEntries))[0].Split(new string[] { "OU=" },StringSplitOptions.RemoveEmptyEntries)[0].TrimEnd(',');
                     }
                     Microsoft.ActiveDirectory.Management.ADPropertyValueCollection history = (Microsoft.ActiveDirectory.Management.ADPropertyValueCollection) AdGroup.Members["SIDHistory"].Value;
                     string sids = "";
@@ -2691,7 +2691,7 @@ namespace ADRecon
 
                     if (AdGroup.Properties["managedBy"].Count != 0)
                     {
-                        ManagedBy = (ManagedByValue.Split(',')[0]).Split('=')[1];
+                        ManagedBy = (ManagedByValue.Split(new string[] { "CN=" },StringSplitOptions.RemoveEmptyEntries))[0].Split(new string[] { "OU=" },StringSplitOptions.RemoveEmptyEntries)[0].TrimEnd(',');
                     }
 
                     if (AdGroup.Properties["grouptype"].Count != 0)
