@@ -50,6 +50,7 @@ These instructions will get you a copy of the tool up and running on your local 
 
 * .NET Framework 3.0 or later (Windows 7 includes 3.0)
 * PowerShell 2.0 or later (Windows 7 includes 2.0)
+* A Windows host (not working with Powershell for Linux)
 
 ### Optional
 
