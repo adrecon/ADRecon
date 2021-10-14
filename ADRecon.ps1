@@ -10424,7 +10424,7 @@ Function Get-ADRACL
         [int] $Threads = 10,
 
         [Parameter(Mandatory = $false)]
-        [string] $DnBase
+        [string] $DnBase = $($ADDomain.DistinguishedName)
     )
 
     If ($Method -eq 'ADWS')
