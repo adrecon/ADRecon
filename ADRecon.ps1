@@ -6708,15 +6708,15 @@ Function Get-ADRForest
             $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Recycle Bin (2008 R2 onwards)"
             If ($ADRecycleBin)
             {
-                If ($ADRecycleBin.Properties.'msDS-EnabledFeatureBL'.Count -gt 0)
+                If ($ADRecycleBin.Properties.'msds-enabledfeaturebl'.Count -gt 0)
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Enabled"
                     $ForestObj += $Obj
-                    For($i=0; $i -lt $($ADRecycleBin.Properties.'msDS-EnabledFeatureBL'.Count); $i++)
+                    For($i=0; $i -lt $($ADRecycleBin.Properties.'msds-enabledfeaturebl'.Count); $i++)
                     {
                         $Obj = New-Object PSObject
                         $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Enabled Scope"
-                        $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADRecycleBin.Properties.'msDS-EnabledFeatureBL'[$i]
+                        $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADRecycleBin.Properties.'msds-enabledfeaturebl'[$i]
                         $ForestObj += $Obj
                     }
                 }
