@@ -96,6 +96,9 @@
 .PARAMETER Threads
     The number of threads to use during processing objects. (Default 10)
 
+.PARAMETER OnlyEnabled
+    Only collect details for enabled objects.
+
 .PARAMETER Log
     Create ADRecon Log using Start-Transcript
 
@@ -253,6 +256,9 @@ param
     [Parameter(Mandatory = $false, HelpMessage = "The number of threads to use during processing of objects. Default 10")]
     [ValidateRange(1,100)]
     [int] $Threads = 10,
+
+    [Parameter(Mandatory = $false, HelpMessage = "Only collect details for enabled objects.")]
+    [bool] $OnlyEnabled = $false,
 
     [Parameter(Mandatory = $false, HelpMessage = "Create ADRecon Log using Start-Transcript")]
     [switch] $Log
@@ -7726,6 +7732,9 @@ Function Get-ADRUser
 .PARAMETER ADRUserSPNs
     [bool]
 
+.PARAMETER OnlyEnabled
+    [bool]
+
 .OUTPUTS
     PSObject.
 #>
@@ -7752,7 +7761,10 @@ Function Get-ADRUser
         [int] $ADRUsers = $true,
 
         [Parameter(Mandatory = $false)]
-        [int] $ADRUserSPNs = $false
+        [int] $ADRUserSPNs = $false,
+
+        [Parameter(Mandatory = $false)]
+        [bool] $OnlyEnabled = $false
     )
 
     If ($Method -eq 'ADWS')
@@ -7761,7 +7773,14 @@ Function Get-ADRUser
         {
             Try
             {
-                $ADUsers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306368)(servicePrincipalName=*))" -ResultPageSize $PageSize -Properties Name,Description,memberOf,sAMAccountName,servicePrincipalName,primaryGroupID,pwdLastSet,userAccountControl )
+                If ($OnlyEnabled -eq $true)
+                {
+                    $ADUsers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306368)(servicePrincipalName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))" -ResultPageSize $PageSize -Properties Name,Description,memberOf,sAMAccountName,servicePrincipalName,primaryGroupID,pwdLastSet,userAccountControl )
+                }
+                Else
+                {
+                    $ADUsers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306368)(servicePrincipalName=*))" -ResultPageSize $PageSize -Properties Name,Description,memberOf,sAMAccountName,servicePrincipalName,primaryGroupID,pwdLastSet,userAccountControl )
+                }
             }
             Catch
             {
@@ -7774,7 +7793,14 @@ Function Get-ADRUser
         {
             Try
             {
-                $ADUsers = @( Get-ADUser -Filter * -ResultPageSize $PageSize -Properties AccountExpirationDate,accountExpires,AccountNotDelegated,AdminCount,AllowReversiblePasswordEncryption,c,CannotChangePassword,CanonicalName,Company,Department,Description,DistinguishedName,DoesNotRequirePreAuth,Enabled,givenName,homeDirectory,Info,LastLogonDate,lastLogonTimestamp,LockedOut,LogonWorkstations,mail,Manager,memberOf,middleName,mobile,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,PasswordExpired,PasswordLastSet,PasswordNeverExpires,PasswordNotRequired,primaryGroupID,profilePath,pwdlastset,SamAccountName,ScriptPath,servicePrincipalName,SID,SIDHistory,SmartcardLogonRequired,sn,Title,TrustedForDelegation,TrustedToAuthForDelegation,UseDESKeyOnly,UserAccountControl,whenChanged,whenCreated )
+                If ($OnlyEnabled -eq $true)
+                {
+                    $ADUsers = @( Get-ADUser -Filter 'enabled -eq $true' -ResultPageSize $PageSize -Properties AccountExpirationDate,accountExpires,AccountNotDelegated,AdminCount,AllowReversiblePasswordEncryption,c,CannotChangePassword,CanonicalName,Company,Department,Description,DistinguishedName,DoesNotRequirePreAuth,Enabled,givenName,homeDirectory,Info,LastLogonDate,lastLogonTimestamp,LockedOut,LogonWorkstations,mail,Manager,memberOf,middleName,mobile,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,PasswordExpired,PasswordLastSet,PasswordNeverExpires,PasswordNotRequired,primaryGroupID,profilePath,pwdlastset,SamAccountName,ScriptPath,servicePrincipalName,SID,SIDHistory,SmartcardLogonRequired,sn,Title,TrustedForDelegation,TrustedToAuthForDelegation,UseDESKeyOnly,UserAccountControl,whenChanged,whenCreated )
+                }
+                Else
+                {
+                    $ADUsers = @( Get-ADUser -Filter * -ResultPageSize $PageSize -Properties AccountExpirationDate,accountExpires,AccountNotDelegated,AdminCount,AllowReversiblePasswordEncryption,c,CannotChangePassword,CanonicalName,Company,Department,Description,DistinguishedName,DoesNotRequirePreAuth,Enabled,givenName,homeDirectory,Info,LastLogonDate,lastLogonTimestamp,LockedOut,LogonWorkstations,mail,Manager,memberOf,middleName,mobile,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,PasswordExpired,PasswordLastSet,PasswordNeverExpires,PasswordNotRequired,primaryGroupID,profilePath,pwdlastset,SamAccountName,ScriptPath,servicePrincipalName,SID,SIDHistory,SmartcardLogonRequired,sn,Title,TrustedForDelegation,TrustedToAuthForDelegation,UseDESKeyOnly,UserAccountControl,whenChanged,whenCreated )
+                }
             }
             Catch
             {
@@ -7816,7 +7842,14 @@ Function Get-ADRUser
         {
             $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
             $ObjSearcher.PageSize = $PageSize
-            $ObjSearcher.Filter = "(&(samAccountType=805306368)(servicePrincipalName=*))"
+            If ($OnlyEnabled -eq $true)
+            {
+                $ObjSearcher.Filter = "(&(samAccountType=805306368)(servicePrincipalName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
+            }
+            Else
+            {
+                $ObjSearcher.Filter = "(&(samAccountType=805306368)(servicePrincipalName=*))"
+            }
             $ObjSearcher.PropertiesToLoad.AddRange(("name","description","memberof","samaccountname","serviceprincipalname","primarygroupid","pwdlastset","useraccountcontrol"))
             $ObjSearcher.SearchScope = "Subtree"
             Try
@@ -7835,8 +7868,15 @@ Function Get-ADRUser
         {
             $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
             $ObjSearcher.PageSize = $PageSize
-            $ObjSearcher.Filter = "(samAccountType=805306368)"
-            # https://msdn.microsoft.com/en-us/library/system.directoryservices.securitymasks(v=vs.110).aspx
+            If ($OnlyEnabled -eq $true)
+            {
+                $ObjSearcher.Filter = "(&(samAccountType=805306368)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
+            }
+            Else
+            {
+                $ObjSearcher.Filter = "(samAccountType=805306368)"
+            }
+                # https://msdn.microsoft.com/en-us/library/system.directoryservices.securitymasks(v=vs.110).aspx
             $ObjSearcher.SecurityMasks = [System.DirectoryServices.SecurityMasks]'Dacl'
             $ObjSearcher.PropertiesToLoad.AddRange(("accountExpires","admincount","c","canonicalname","company","department","description","distinguishedname","givenName","homedirectory","info","lastLogontimestamp","mail","manager","memberof","middleName","mobile","msDS-AllowedToDelegateTo","msDS-SupportedEncryptionTypes","name","ntsecuritydescriptor","objectsid","primarygroupid","profilepath","pwdLastSet","samaccountName","scriptpath","serviceprincipalname","sidhistory","sn","title","useraccountcontrol","userworkstations","whenchanged","whencreated"))
             $ObjSearcher.SearchScope = "Subtree"
@@ -9555,6 +9595,9 @@ Function Get-ADRComputer
 .PARAMETER ADRComputerSPNs
     [bool]
 
+.PARAMETER OnlyEnabled
+    [bool]
+
 .OUTPUTS
     PSObject.
 #>
@@ -9584,7 +9627,10 @@ Function Get-ADRComputer
         [int] $ADRComputers = $true,
 
         [Parameter(Mandatory = $false)]
-        [int] $ADRComputerSPNs = $false
+        [int] $ADRComputerSPNs = $false,
+
+        [Parameter(Mandatory = $false)]
+        [bool] $OnlyEnabled = $false
     )
 
     If ($Method -eq 'ADWS')
@@ -9593,7 +9639,14 @@ Function Get-ADRComputer
         {
             Try
             {
-                $ADComputers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306369)(servicePrincipalName=*))" -ResultPageSize $PageSize -Properties Name,servicePrincipalName )
+                If ($OnlyEnabled -eq $true)
+                {
+                    $ADComputers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306369)(servicePrincipalName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))" -ResultPageSize $PageSize -Properties Name, servicePrincipalName )
+                }
+                Else
+                {
+                    $ADComputers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306369)(servicePrincipalName=*))" -ResultPageSize $PageSize -Properties Name,servicePrincipalName )
+                }
             }
             Catch
             {
@@ -9606,7 +9659,14 @@ Function Get-ADRComputer
         {
             Try
             {
-                $ADComputers = @( Get-ADComputer -Filter * -ResultPageSize $PageSize -Properties Description,DistinguishedName,DNSHostName,Enabled,IPv4Address,LastLogonDate,'msDS-AllowedToDelegateTo','ms-ds-CreatorSid','msDS-SupportedEncryptionTypes',Name,OperatingSystem,OperatingSystemHotfix,OperatingSystemServicePack,OperatingSystemVersion,PasswordLastSet,primaryGroupID,SamAccountName,servicePrincipalName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,UserAccountControl,whenChanged,whenCreated )
+                If ($OnlyEnabled -eq $true)
+                {
+                    $ADComputers = @( Get-ADComputer -Filter 'enabled -eq $true' -ResultPageSize $PageSize -Properties Description,DistinguishedName,DNSHostName,Enabled,IPv4Address,LastLogonDate,'msDS-AllowedToDelegateTo','ms-ds-CreatorSid','msDS-SupportedEncryptionTypes',Name,OperatingSystem,OperatingSystemHotfix,OperatingSystemServicePack,OperatingSystemVersion,PasswordLastSet,primaryGroupID,SamAccountName,servicePrincipalName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,UserAccountControl,whenChanged,whenCreated )
+                }
+                Else
+                {
+                    $ADComputers = @( Get-ADComputer -Filter * -ResultPageSize $PageSize -Properties Description,DistinguishedName,DNSHostName,Enabled,IPv4Address,LastLogonDate,'msDS-AllowedToDelegateTo','ms-ds-CreatorSid','msDS-SupportedEncryptionTypes',Name,OperatingSystem,OperatingSystemHotfix,OperatingSystemServicePack,OperatingSystemVersion,PasswordLastSet,primaryGroupID,SamAccountName,servicePrincipalName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,UserAccountControl,whenChanged,whenCreated )
+                }
             }
             Catch
             {
@@ -9636,7 +9696,14 @@ Function Get-ADRComputer
         {
             $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
             $ObjSearcher.PageSize = $PageSize
-            $ObjSearcher.Filter = "(&(samAccountType=805306369)(servicePrincipalName=*))"
+            If ($OnlyEnabled -eq $true)
+            {
+                $ObjSearcher.Filter = "(&(samAccountType=805306369)(servicePrincipalName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
+            }
+            Else
+            {
+                $ObjSearcher.Filter = "(&(samAccountType=805306369)(servicePrincipalName=*))"
+            }
             $ObjSearcher.PropertiesToLoad.AddRange(("name","serviceprincipalname"))
             $ObjSearcher.SearchScope = "Subtree"
             Try
@@ -9655,7 +9722,14 @@ Function Get-ADRComputer
         {
             $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
             $ObjSearcher.PageSize = $PageSize
-            $ObjSearcher.Filter = "(samAccountType=805306369)"
+            If ($OnlyEnabled -eq $true)
+            {
+                $ObjSearcher.Filter = "(&(samAccountType=805306369)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
+            }
+            Else
+            {
+                $ObjSearcher.Filter = "(samAccountType=805306369)"
+            }
             $ObjSearcher.PropertiesToLoad.AddRange(("description","distinguishedname","dnshostname","lastlogontimestamp","msDS-AllowedToDelegateTo","ms-ds-CreatorSid","msDS-SupportedEncryptionTypes","name","objectsid","operatingsystem","operatingsystemhotfix","operatingsystemservicepack","operatingsystemversion","primarygroupid","pwdlastset","samaccountname","serviceprincipalname","sidhistory","useraccountcontrol","whenchanged","whencreated"))
             $ObjSearcher.SearchScope = "Subtree"
 
@@ -11691,7 +11765,7 @@ Function Invoke-ADRecon
     [int]
     Timespan for Dormant accounts. Default 90 days.
 
-.PARAMTER PassMaxAge
+.PARAMETER PassMaxAge
     [int]
     Maximum machine account password age. Default 30 days
 
@@ -11702,6 +11776,10 @@ Function Invoke-ADRecon
 .PARAMETER Threads
     [int]
     The number of threads to use during processing of objects. Default 10.
+
+.PARAMETER OnlyEnabled
+    [bool]
+    Only collect details for enabled objects.
 
 .PARAMETER UseAltCreds
     [bool]
@@ -11744,6 +11822,9 @@ Function Invoke-ADRecon
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10,
+
+        [Parameter(Mandatory = $false)]
+        [bool] $OnlyEnabled = $false,
 
         [Parameter(Mandatory = $false)]
         [bool] $UseAltCreds = $false
@@ -12008,7 +12089,18 @@ Function Invoke-ADRecon
         }
     }
 
-    Write-Output "[*] Running on $RanonComputer"
+    If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+    {
+        $Username = $($Credential.UserName)
+    }
+    Else
+    {
+        $Username = $([Environment]::UserName)
+    }
+
+    Write-Output "[*] Running on $RanonComputer as $Username"
+
+    Remove-Variable Username
 
     Switch ($Collect)
     {
@@ -12424,7 +12516,7 @@ Function Invoke-ADRecon
         {
             Write-Output "[-] Users and SPNs - May take some time"
         }
-        Get-ADRUser -Method $Method -date $date -objDomain $objDomain -DormantTimeSpan $DormantTimeSpan -PageSize $PageSize -Threads $Threads -ADRUsers $ADRUsers -ADRUserSPNs $ADRUserSPNs
+        Get-ADRUser -Method $Method -date $date -objDomain $objDomain -DormantTimeSpan $DormantTimeSpan -PageSize $PageSize -Threads $Threads -ADRUsers $ADRUsers -ADRUserSPNs $ADRUserSPNs -OnlyEnabled $OnlyEnabled
         Remove-Variable ADRUsers
         Remove-Variable ADRUserSPNs
     }
@@ -12550,7 +12642,7 @@ Function Invoke-ADRecon
         {
             Write-Output "[-] Computers and SPNs - May take some time"
         }
-        Get-ADRComputer -Method $Method -date $date -objDomain $objDomain -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -PageSize $PageSize -Threads $Threads -ADRComputers $ADRComputers -ADRComputerSPNs $ADRComputerSPNs
+        Get-ADRComputer -Method $Method -date $date -objDomain $objDomain -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -PageSize $PageSize -Threads $Threads -ADRComputers $ADRComputers -ADRComputerSPNs $ADRComputerSPNs -OnlyEnabled $OnlyEnabled
         Remove-Variable ADRComputers
         Remove-Variable ADRComputerSPNs
     }
@@ -12674,7 +12766,7 @@ If ($Log)
     Start-Transcript -Path "$(Get-Location)\ADRecon-Console-Log.txt"
 }
 
-Invoke-ADRecon -GenExcel $GenExcel -Method $Method -Collect $Collect -DomainController $DomainController -Credential $Credential -OutputType $OutputType -ADROutputDir $OutputDir -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -PageSize $PageSize -Threads $Threads
+Invoke-ADRecon -GenExcel $GenExcel -Method $Method -Collect $Collect -DomainController $DomainController -Credential $Credential -OutputType $OutputType -ADROutputDir $OutputDir -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -PageSize $PageSize -Threads $Threads -OnlyEnabled $OnlyEnabled
 
 If ($Log)
 {

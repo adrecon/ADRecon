@@ -147,6 +147,9 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 -Threads <Int>
     The number of threads to use during processing objects (Default 10)
 
+-OnlyEnabled <Bool>
+    Only collect details for enabled objects.
+
 -Log <Switch>
     Create ADRecon Log using Start-Transcript
 ```
