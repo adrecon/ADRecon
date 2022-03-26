@@ -10946,7 +10946,7 @@ The TokenHandle result from LogonUser.
 
     If (([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') -and (-not $PSBoundParameters['Quiet']))
     {
-        Write-Warning "[Get-ADRUserImpersonation] powershell.exe is not currently in a single-threaded apartment state, token impersonation may not work."
+        Write-Warning "[Get-ADRUserImpersonation] powershell.exe process is not currently in a single-threaded apartment state, token impersonation may not work."
     }
 
     If ($PSBoundParameters['TokenHandle'])
@@ -11796,8 +11796,8 @@ Function Invoke-ADRecon
         [ValidateSet('ADWS', 'LDAP')]
         [string] $Method = 'ADWS',
 
-        [Parameter(Mandatory = $true)]
-        [array] $Collect,
+        [Parameter(Mandatory = $false)]
+        [array] $Collect = 'Default',
 
         [Parameter(Mandatory = $false)]
         [string] $DomainController = '',
@@ -11805,8 +11805,8 @@ Function Invoke-ADRecon
         [Parameter(Mandatory = $false)]
         [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
 
-        [Parameter(Mandatory = $true)]
-        [array] $OutputType,
+        [Parameter(Mandatory = $false)]
+        [array] $OutputType = 'Default',
 
         [Parameter(Mandatory = $false)]
         [string] $ADROutputDir,
