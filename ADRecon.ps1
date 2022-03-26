@@ -6373,7 +6373,7 @@ Function Get-ADRForest
             }
 
             # Check Recycle Bin Feature Status
-            If ([convert]::ToInt32($ADForest.ForestMode) -ge 6)
+            If ([convert]::ToInt32($ADForest.ForestMode) -ge 4)
             {
                 Try
                 {
@@ -6581,7 +6581,7 @@ Function Get-ADRForest
                 Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             }
             # Check Recycle Bin Feature Status
-            If ([convert]::ToInt32($objDomainRootDSE.forestFunctionality,10) -ge 6)
+            If ([convert]::ToInt32($objDomainRootDSE.forestFunctionality,10) -ge 4)
             {
                 Try
                 {
@@ -6628,7 +6628,7 @@ Function Get-ADRForest
             $ADForestTombstoneLifetime = ([ADSI]"LDAP://CN=Directory Service,CN=Windows NT,CN=Services,$($objDomainRootDSE.configurationNamingContext)").tombstoneLifetime.value
 
             # Check Recycle Bin Feature Status
-            If ([convert]::ToInt32($objDomainRootDSE.forestFunctionality,10) -ge 6)
+            If ([convert]::ToInt32($objDomainRootDSE.forestFunctionality,10) -ge 4)
             {
                 $ADRecycleBin = ([ADSI]"LDAP://CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,$($objDomain.distinguishedName)")
             }
