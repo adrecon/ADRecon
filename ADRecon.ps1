@@ -10495,7 +10495,10 @@ Function Get-ADRACL
         [int] $PageSize,
 
         [Parameter(Mandatory = $false)]
-        [int] $Threads = 10
+        [int] $Threads = 10,
+
+        [Parameter(Mandatory = $false)]
+        [string] $DnBase = $($ADDomain.DistinguishedName)
     )
 
     If ($Method -eq 'ADWS')
@@ -10568,7 +10571,7 @@ Function Get-ADRACL
         Try
         {
             Write-Verbose "[*] Enumerating Domain, OU, GPO, User, Computer and Group Objects"
-            $Objs += Get-ADObject -LDAPFilter '(|(objectClass=domain)(objectCategory=organizationalunit)(objectCategory=groupPolicyContainer)(samAccountType=805306368)(samAccountType=805306369)(samaccounttype=268435456)(samaccounttype=268435457)(samaccounttype=536870912)(samaccounttype=536870913))' -Properties DisplayName, DistinguishedName, Name, ntsecuritydescriptor, ObjectClass, objectsid
+            $Objs += Get-ADObject -SearchBase $DnBase -LDAPFilter '(|(objectClass=domain)(objectCategory=organizationalunit)(objectCategory=groupPolicyContainer)(samAccountType=805306368)(samAccountType=805306369)(samaccounttype=268435456)(samaccounttype=268435457)(samaccounttype=536870912)(samaccounttype=536870913))' -Properties DisplayName, DistinguishedName, Name, ntsecuritydescriptor, ObjectClass, objectsid
         }
         Catch
         {
@@ -10690,7 +10693,7 @@ Function Get-ADRACL
             }
             $objSearcherPath.PageSize = $PageSize
             $objSearcherPath.filter = "(objectClass=controlAccessRight)"
-
+            
             Try
             {
                 $RightsSearcher = $objSearcherPath.FindAll()
@@ -10717,6 +10720,7 @@ Function Get-ADRACL
         Write-Verbose "[*] Enumerating Domain, OU, GPO, User, Computer and Group Objects"
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
+        $objSearcherPath.SearchRoot = "LDAP://$DnBase"
         $ObjSearcher.Filter = "(|(objectClass=domain)(objectCategory=organizationalunit)(objectCategory=groupPolicyContainer)(samAccountType=805306368)(samAccountType=805306369)(samaccounttype=268435456)(samaccounttype=268435457)(samaccounttype=536870912)(samaccounttype=536870913))"
         # https://msdn.microsoft.com/en-us/library/system.directoryservices.securitymasks(v=vs.110).aspx
         $ObjSearcher.SecurityMasks = [System.DirectoryServices.SecurityMasks]::Dacl -bor [System.DirectoryServices.SecurityMasks]::Group -bor [System.DirectoryServices.SecurityMasks]::Owner -bor [System.DirectoryServices.SecurityMasks]::Sacl
