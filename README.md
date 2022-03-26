@@ -50,7 +50,8 @@ These instructions will get you a copy of the tool up and running on your local 
 
 * .NET Framework 3.0 or later (Windows 7 includes 3.0)
 * PowerShell 2.0 or later (Windows 7 includes 2.0)
-* A Windows host (not working with Powershell for Linux)
+    * Powershell Core currently not supported
+* A Windows host (Powershell for Linux is not supported)
 
 ### Optional
 
@@ -152,6 +153,10 @@ When you run ADRecon, a `ADRecon-Report-<timestamp>` folder will be created whic
 
 -Log <Switch>
     Create ADRecon Log using Start-Transcript
+
+-Logo <String>
+    Which Logo to use in the excel file? (Default ADRecon)
+    Values include: ADRecon, CyberCX, Payatu.
 ```
 
 ### Future Plans
@@ -175,7 +180,7 @@ Pull request are always welcome.
 
 ### Mad props
 
-Thanks for the awesome work by @_wald0, @CptJesus, @harmj0y, @mattifestation, @PyroTek3, @darkoperator, @ITsecurityAU Team, @CTXIS Team and others.
+Thanks for the awesome work by @_wald0, @CptJesus, @harmj0y, @mattifestation, @PyroTek3, @darkoperator, @ITsecurityAU Team, @CTXIS Team, @CxCyber Team, @payatulabs Team and others.
 
 ### License
 
