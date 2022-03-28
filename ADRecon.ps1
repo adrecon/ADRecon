@@ -117,7 +117,7 @@
 
 	.\ADRecon.ps1 -DomainController <IP or FQDN> -Credential <domain\username>
     [*] ADRecon <version> by Prashant Mahajan (@prashant3535)
-	[*] Running on <domain>\<hostname> - Member Workstation
+	[*] Running on <domain>\<hostname> - Member Workstation as <user>
     <snip>
 
     Example output from Domain Member with Alternate Credentials.
@@ -126,7 +126,7 @@
 
 	.\ADRecon.ps1 -DomainController <IP or FQDN> -Credential <domain\username> -Collect DomainControllers -OutputType Excel
     [*] ADRecon <version> by Prashant Mahajan (@prashant3535)
-    [*] Running on WORKGROUP\<hostname> - Standalone Workstation
+    [*] Running on WORKGROUP\<hostname> - Standalone Workstation as <user>
     [*] Commencing - <timestamp>
     [-] Domain Controllers
     [*] Total Execution Time (mins): <minutes>
@@ -141,7 +141,7 @@
 
     .\ADRecon.ps1 -Method ADWS -DomainController <IP or FQDN> -Credential <domain\username>
     [*] ADRecon <version> by Prashant Mahajan (@prashant3535)
-    [*] Running on WORKGROUP\<hostname> - Standalone Workstation
+    [*] Running on WORKGROUP\<hostname> - Standalone Workstation as <user>
     [*] Commencing - <timestamp>
     [-] Domain
     [-] Forest
@@ -179,7 +179,7 @@
 
     .\ADRecon.ps1 -Method LDAP -DomainController <IP or FQDN> -Credential <domain\username>
     [*] ADRecon <version> by Prashant Mahajan (@prashant3535)
-    [*] Running on WORKGROUP\<hostname> - Standalone Workstation
+    [*] Running on WORKGROUP\<hostname> - Standalone Workstation as <user>
     [*] LDAP bind Successful
     [*] Commencing - <timestamp>
     [-] Domain
@@ -1980,20 +1980,6 @@ namespace ADRecon
         public static int ObjectCount(Object[] ADRObject)
         {
             return ADRObject.Length;
-        }
-
-        public static bool LAPSCheck(Object[] AdComputers)
-        {
-            bool LAPS = false;
-            foreach (SearchResult AdComputer in AdComputers)
-            {
-                if (AdComputer.Properties["ms-mcs-admpwdexpirationtime"].Count == 1)
-                {
-                    LAPS = true;
-                    return LAPS;
-                }
-            }
-            return LAPS;
         }
 
         public static Object[] DomainControllerParser(Object[] AdDomainControllers, int numOfThreads)
@@ -7789,7 +7775,7 @@ Function Get-ADRUser
         [int] $ADRUserSPNs = $false,
 
         [Parameter(Mandatory = $false)]
-        [bool] $OnlyEnabled = $false
+        [int] $OnlyEnabled = $false
     )
 
     If ($Method -eq 'ADWS')
@@ -7798,7 +7784,7 @@ Function Get-ADRUser
         {
             Try
             {
-                If ($OnlyEnabled -eq $true)
+                If ($OnlyEnabled)
                 {
                     $ADUsers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306368)(servicePrincipalName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))" -ResultPageSize $PageSize -Properties Name,Description,memberOf,sAMAccountName,servicePrincipalName,primaryGroupID,pwdLastSet,userAccountControl )
                 }
@@ -7818,7 +7804,7 @@ Function Get-ADRUser
         {
             Try
             {
-                If ($OnlyEnabled -eq $true)
+                If ($OnlyEnabled)
                 {
                     $ADUsers = @( Get-ADUser -Filter 'enabled -eq $true' -ResultPageSize $PageSize -Properties AccountExpirationDate,accountExpires,AccountNotDelegated,AdminCount,AllowReversiblePasswordEncryption,c,CannotChangePassword,CanonicalName,Company,Department,Description,DistinguishedName,DoesNotRequirePreAuth,Enabled,givenName,homeDirectory,Info,LastLogonDate,lastLogonTimestamp,LockedOut,LogonWorkstations,mail,Manager,memberOf,middleName,mobile,'msDS-AllowedToDelegateTo','msDS-SupportedEncryptionTypes',Name,PasswordExpired,PasswordLastSet,PasswordNeverExpires,PasswordNotRequired,primaryGroupID,profilePath,pwdlastset,SamAccountName,ScriptPath,servicePrincipalName,SID,SIDHistory,SmartcardLogonRequired,sn,Title,TrustedForDelegation,TrustedToAuthForDelegation,UseDESKeyOnly,UserAccountControl,whenChanged,whenCreated )
                 }
@@ -7867,7 +7853,7 @@ Function Get-ADRUser
         {
             $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
             $ObjSearcher.PageSize = $PageSize
-            If ($OnlyEnabled -eq $true)
+            If ($OnlyEnabled)
             {
                 $ObjSearcher.Filter = "(&(samAccountType=805306368)(servicePrincipalName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
             }
@@ -7893,7 +7879,7 @@ Function Get-ADRUser
         {
             $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
             $ObjSearcher.PageSize = $PageSize
-            If ($OnlyEnabled -eq $true)
+            If ($OnlyEnabled)
             {
                 $ObjSearcher.Filter = "(&(samAccountType=805306368)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
             }
@@ -9655,7 +9641,7 @@ Function Get-ADRComputer
         [int] $ADRComputerSPNs = $false,
 
         [Parameter(Mandatory = $false)]
-        [bool] $OnlyEnabled = $false
+        [int] $OnlyEnabled = $false
     )
 
     If ($Method -eq 'ADWS')
@@ -9664,7 +9650,7 @@ Function Get-ADRComputer
         {
             Try
             {
-                If ($OnlyEnabled -eq $true)
+                If ($OnlyEnabled)
                 {
                     $ADComputers = @( Get-ADObject -LDAPFilter "(&(samAccountType=805306369)(servicePrincipalName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))" -ResultPageSize $PageSize -Properties Name, servicePrincipalName )
                 }
@@ -9684,7 +9670,7 @@ Function Get-ADRComputer
         {
             Try
             {
-                If ($OnlyEnabled -eq $true)
+                If ($OnlyEnabled)
                 {
                     $ADComputers = @( Get-ADComputer -Filter 'enabled -eq $true' -ResultPageSize $PageSize -Properties Description,DistinguishedName,DNSHostName,Enabled,IPv4Address,LastLogonDate,'msDS-AllowedToDelegateTo','ms-ds-CreatorSid','msDS-SupportedEncryptionTypes',Name,OperatingSystem,OperatingSystemHotfix,OperatingSystemServicePack,OperatingSystemVersion,PasswordLastSet,primaryGroupID,SamAccountName,servicePrincipalName,SID,SIDHistory,TrustedForDelegation,TrustedToAuthForDelegation,UserAccountControl,whenChanged,whenCreated )
                 }
@@ -9721,7 +9707,7 @@ Function Get-ADRComputer
         {
             $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
             $ObjSearcher.PageSize = $PageSize
-            If ($OnlyEnabled -eq $true)
+            If ($OnlyEnabled)
             {
                 $ObjSearcher.Filter = "(&(samAccountType=805306369)(servicePrincipalName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
             }
@@ -9747,7 +9733,7 @@ Function Get-ADRComputer
         {
             $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
             $ObjSearcher.PageSize = $PageSize
-            If ($OnlyEnabled -eq $true)
+            If ($OnlyEnabled)
             {
                 $ObjSearcher.Filter = "(&(samAccountType=805306369)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
             }
@@ -9799,7 +9785,7 @@ Function Get-ADRComputer
 }
 
 # based on https://github.com/kfosaaen/Get-LAPSPasswords/blob/master/Get-LAPSPasswords.ps1
-Function Get-ADRLAPSCheck
+Function Get-ADRLAPS
 {
 <#
 .SYNOPSIS
@@ -9843,18 +9829,40 @@ Function Get-ADRLAPSCheck
 
     If ($Method -eq 'ADWS')
     {
+
         Try
         {
-            $ADComputers = @( Get-ADObject -LDAPFilter "(samAccountType=805306369)" -Properties CN,DNSHostName,'ms-Mcs-AdmPwd','ms-Mcs-AdmPwdExpirationTime' -ResultPageSize $PageSize )
+            $ADDomain = Get-ADDomain
         }
-        Catch [System.ArgumentException]
+        Catch
+        {
+            Write-Warning "[Get-ADRLAPS] Error getting Domain Context"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+        }
+
+        Try
+        {
+            $ADComputers = @( Get-ADObject "CN=ms-Mcs-AdmPwd,CN=Schema,CN=Configuration,$($ADDomain.DistinguishedName)" )
+        }
+        Catch
         {
             Write-Warning "[*] LAPS is not implemented."
             Return $null
         }
+
+        If ($ADDomain)
+        {
+            Remove-Variable ADDomain
+        }
+
+        Try
+        {
+            $ADComputers = @( Get-ADObject -LDAPFilter "(samAccountType=805306369)" -Properties CN,DNSHostName,'ms-Mcs-AdmPwd','ms-Mcs-AdmPwdExpirationTime' -ResultPageSize $PageSize )
+        }
         Catch
         {
-            Write-Warning "[Get-ADRLAPSCheck] Error while enumerating LAPS Objects"
+            Write-Warning "[Get-ADRLAPS] Error while enumerating LAPS Objects"
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
@@ -9869,6 +9877,26 @@ Function Get-ADRLAPSCheck
 
     If ($Method -eq 'LDAP')
     {
+        Try
+        {
+            $ADRLAPSCheck = [ADSI]::Exists("LDAP://CN=ms-Mcs-AdmPwd,CN=Schema,CN=Configuration,$($objDomain.distinguishedName)")
+        }
+        Catch
+        {
+            Write-Warning "[Get-ADRLAPS] Error while checking for existance of LAPS Properties"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            Return $null
+
+        }
+
+        If (!$ADRLAPSCheck)
+        {
+                Write-Warning "[*] LAPS is not implemented."
+                Return $null
+        }
+
+        Remove-Variable ADRLAPSCheck
+
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(samAccountType=805306369)"
@@ -9880,7 +9908,7 @@ Function Get-ADRLAPSCheck
         }
         Catch
         {
-            Write-Warning "[Get-ADRLAPSCheck] Error while enumerating LAPS Objects"
+            Write-Warning "[Get-ADRLAPS] Error while enumerating LAPS Objects"
             Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             Return $null
         }
@@ -9888,18 +9916,9 @@ Function Get-ADRLAPSCheck
 
         If ($ADComputers)
         {
-            $LAPSCheck = [ADRecon.LDAPClass]::LAPSCheck($ADComputers)
-            If (-Not $LAPSCheck)
-            {
-                Write-Warning "[*] LAPS is not implemented."
-                Return $null
-            }
-            Else
-            {
-                Write-Verbose "[*] Total LAPS Objects: $([ADRecon.LDAPClass]::ObjectCount($ADComputers))"
-                $LAPSObj = [ADRecon.LDAPClass]::LAPSParser($ADComputers, $Threads)
-                Remove-Variable ADComputers
-            }
+            Write-Verbose "[*] Total LAPS Objects: $([ADRecon.LDAPClass]::ObjectCount($ADComputers))"
+            $LAPSObj = [ADRecon.LDAPClass]::LAPSParser($ADComputers, $Threads)
+            Remove-Variable ADComputers
         }
     }
 
@@ -11867,7 +11886,7 @@ Function Invoke-ADRecon
         [string] $Logo = "ADRecon"
     )
 
-    [string] $ADReconVersion = "v1.24"
+    [string] $ADReconVersion = "v1.25"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535)"
 
     If ($GenExcel)
@@ -12686,7 +12705,7 @@ Function Invoke-ADRecon
     If ($ADRLAPS)
     {
         Write-Output "[-] LAPS - Needs Privileged Account"
-        $ADRObject = Get-ADRLAPSCheck -Method $Method -objDomain $objDomain -PageSize $PageSize -Threads $Threads
+        $ADRObject = Get-ADRLAPS -Method $Method -objDomain $objDomain -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
             Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "LAPS"
@@ -12770,7 +12789,7 @@ Function Invoke-ADRecon
         }
         'EXCEL'
         {
-            Export-ADRExcel $ADROutputDir
+            Export-ADRExcel -ExcelPath $ADROutputDir -Logo $Logo
         }
     }
     Remove-Variable TotalTime
