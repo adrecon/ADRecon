@@ -5289,11 +5289,15 @@ Function Export-ADRExcel
 
             $excel.ScreenUpdating = $false
             $worksheet = $workbook.Worksheets.Item(1)
+
             # https://docs.microsoft.com/en-us/office/vba/api/excel.xlhalign
-            $worksheet.Range("B2:G10").HorizontalAlignment = -4108
+            $worksheet.Range("C1:D1").HorizontalAlignment = -4108
+            $workbook.Worksheets.Item(1).Cells.Item(1,7).HorizontalAlignment = -4108
+            $worksheet.Range("B2:H10").HorizontalAlignment = -4108
+
             # https://docs.microsoft.com/en-us/office/vba/api/excel.range.borderaround
 
-            "A2:B10", "C2:D10", "E2:F10", "G2:G10" | ForEach-Object {
+            "A2:B10", "C2:E10", "F2:G10", "H2:H10" | ForEach-Object {
                 $worksheet.Range($_).BorderAround(1) | Out-Null
             }
 
@@ -5303,80 +5307,104 @@ Function Export-ADRExcel
             # Values for Font.ColorIndex
 
             $ObjValues = @(
-            # PCI Enforce password history (passwords)
+            # PCI v3.2.1 Enforce password history (passwords)
             "C2", '=IF(B2<4,TRUE, FALSE)'
 
-            # PCI Maximum password age (days)
+            # PCI v3.2.1 Maximum password age (days)
             "C3", '=IF(OR(B3=0,B3>90),TRUE, FALSE)'
 
-            # PCI Minimum password age (days)
+            # PCI v3.2.1 Minimum password age (days)
 
-            # PCI Minimum password length (characters)
+            # PCI v3.2.1 Minimum password length (characters)
             "C5", '=IF(B5<7,TRUE, FALSE)'
 
-            # PCI Password must meet complexity requirements
+            # PCI v3.2.1 Password must meet complexity requirements
             "C6", '=IF(B6<>TRUE,TRUE, FALSE)'
 
-            # PCI Store password using reversible encryption for all users in the domain
+            # PCI v3.2.1 Store password using reversible encryption for all users in the domain
 
-            # PCI Account lockout duration (mins)
+            # PCI v3.2.1 Account lockout duration (mins)
             "C8", '=IF(AND(B8>=1,B8<30),TRUE, FALSE)'
 
-            # PCI Account lockout threshold (attempts)
+            # PCI v3.2.1 Account lockout threshold (attempts)
             "C9", '=IF(OR(B9=0,B9>6),TRUE, FALSE)'
 
-            # PCI Reset account lockout counter after (mins)
+            # PCI v3.2.1 Reset account lockout counter after (mins)
 
-            # ASD ISM Enforce password history (passwords)
-            "E2", '=IF(B2<8,TRUE, FALSE)'
+            # PCI v4.0 Enforce password history (passwords)
+            "D2", '=IF(B2<4,TRUE, FALSE)'
 
-            # ASD ISM Maximum password age (days)
-            "E3", '=IF(OR(B3=0,B3>90),TRUE, FALSE)'
+            # PCI v4.0 Maximum password age (days)
+            "D3", '=IF(OR(B3=0,B3>90),TRUE, FALSE)'
 
-            # ASD ISM Minimum password age (days)
-            "E4", '=IF(B4=0,TRUE, FALSE)'
+            # PCI v4.0 Minimum password age (days)
 
-            # ASD ISM Minimum password length (characters)
-            "E5", '=IF(B5<13,TRUE, FALSE)'
+            # PCI v4.0 Minimum password length (characters)
+            "D5", '=IF(B5<12,TRUE, FALSE)'
 
-            # ASD ISM Password must meet complexity requirements
-            "E6", '=IF(B6<>TRUE,TRUE, FALSE)'
+            # PCI v4.0 Password must meet complexity requirements
+            "D6", '=IF(B6<>TRUE,TRUE, FALSE)'
 
-            # ASD ISM Store password using reversible encryption for all users in the domain
+            # PCI v4.0 Store password using reversible encryption for all users in the domain
 
-            # ASD ISM Account lockout duration (mins)
+            # PCI v4.0 Account lockout duration (mins)
+            "D8", '=IF(AND(B8>=1,B8<30),TRUE, FALSE)'
 
-            # ASD ISM Account lockout threshold (attempts)
-            "E9", '=IF(OR(B9=0,B9>5),TRUE, FALSE)'
+            # PCI v4.0 Account lockout threshold (attempts)
+            "D9", '=IF(OR(B9=0,B9>10),TRUE, FALSE)'
 
-            # ASD ISM Reset account lockout counter after (mins)
+            # PCI v4.0 Reset account lockout counter after (mins)
+
+            # ACSC ISM Enforce password history (passwords)
+            #"F2", '=IF(B2<8,TRUE, FALSE)'
+
+            # ACSC ISM Maximum password age (days)
+            #"F3", '=IF(OR(B3=0,B3>90),TRUE, FALSE)'
+
+            # ACSC ISM Minimum password age (days)
+            #"F4", '=IF(B4=0,TRUE, FALSE)'
+
+            # ACSC ISM Minimum password length (characters)
+            "F5", '=IF(B5<14,TRUE, FALSE)'
+
+            # ACSC ISM Password must meet complexity requirements
+            #"F6", '=IF(B6<>TRUE,TRUE, FALSE)'
+
+            # ACSC ISM Store password using reversible encryption for all users in the domain
+
+            # ACSC ISM Account lockout duration (mins)
+
+            # ACSC ISM Account lockout threshold (attempts)
+            "F9", '=IF(OR(B9=0,B9>5),TRUE, FALSE)'
+
+            # ACSC ISM Reset account lockout counter after (mins)
 
             # CIS Benchmark Enforce password history (passwords)
-            "G2", '=IF(B2<24,TRUE, FALSE)'
+            "H2", '=IF(B2<24,TRUE, FALSE)'
 
             # CIS Benchmark Maximum password age (days)
-            "G3", '=IF(OR(B3=0,B3>60),TRUE, FALSE)'
+            "H3", '=IF(OR(B3=0,B3>365),TRUE, FALSE)'
 
             # CIS Benchmark Minimum password age (days)
-            "G4", '=IF(B4=0,TRUE, FALSE)'
+            "H4", '=IF(B4=0,TRUE, FALSE)'
 
             # CIS Benchmark Minimum password length (characters)
-            "G5", '=IF(B5<14,TRUE, FALSE)'
+            "H5", '=IF(B5<14,TRUE, FALSE)'
 
             # CIS Benchmark Password must meet complexity requirements
-            "G6", '=IF(B6<>TRUE,TRUE, FALSE)'
+            "H6", '=IF(B6<>TRUE,TRUE, FALSE)'
 
             # CIS Benchmark Store password using reversible encryption for all users in the domain
-            "G7", '=IF(B7<>FALSE,TRUE, FALSE)'
+            "H7", '=IF(B7<>FALSE,TRUE, FALSE)'
 
             # CIS Benchmark Account lockout duration (mins)
-            "G8", '=IF(AND(B8>=1,B8<15),TRUE, FALSE)'
+            "H8", '=IF(AND(B8>=1,B8<15),TRUE, FALSE)'
 
             # CIS Benchmark Account lockout threshold (attempts)
-            "G9", '=IF(OR(B9=0,B9>10),TRUE, FALSE)'
+            "H9", '=IF(OR(B9=0,B9>5),TRUE, FALSE)'
 
             # CIS Benchmark Reset account lockout counter after (mins)
-            "G10", '=IF(B10<15,TRUE, FALSE)' )
+            "H10", '=IF(B10<15,TRUE, FALSE)' )
 
             For ($i = 0; $i -lt $($ObjValues.Count); $i++)
             {
@@ -5384,14 +5412,14 @@ Function Export-ADRExcel
                 $i++
             }
 
-            "C2", "C3" , "C5", "C6", "C8", "C9", "E2", "E3" , "E4", "E5", "E6", "E9", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9", "G10" | ForEach-Object {
+            "C2", "C3" , "C5", "C6", "C8", "C9", "D2", "D3" , "D5", "D6", "D8", "D9", "F5", "F9", "H2", "H3", "H4", "H5", "H6", "H7", "H8", "H9", "H10" | ForEach-Object {
                 $worksheet.Range($_).FormatConditions.Item(1).StopIfTrue = $false
                 $worksheet.Range($_).FormatConditions.Item(1).Font.ColorIndex = 3
             }
 
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,4) , "https://www.pcisecuritystandards.org/document_library?category=pcidss&document=pci_dss", "" , "", "PCI DSS v3.2.1") | Out-Null
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,6) , "https://acsc.gov.au/infosec/ism/", "" , "", "2018 ISM Controls") | Out-Null
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,7) , "https://www.cisecurity.org/benchmark/microsoft_windows_server/", "" , "", "CIS Benchmark 2016") | Out-Null
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,5) , "https://www.pcisecuritystandards.org/document_library?category=pcidss&document=pci_dss", "" , "", "PCI DSS Requirement") | Out-Null
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,7) , "https://www.cyber.gov.au/acsc/view-all-content/ism", "" , "", "ISM Controls 10Mar2022") | Out-Null
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,8) , "https://www.cisecurity.org/benchmark/microsoft_windows_server/", "" , "", "CIS Benchmark 2022") | Out-Null
 
             $excel.ScreenUpdating = $true
             Get-ADRExcelComObjRelease -ComObjtoRelease $worksheet
@@ -7385,15 +7413,15 @@ Function Get-ADRDefaultPasswordPolicy
 
         If ($ADpasspolicy)
         {
-            $ObjValues = @( "Enforce password history (passwords)", $ADpasspolicy.PasswordHistoryCount, "4", "Req. 8.2.5", "8", "Control: 0423", "24 or more",
-            "Maximum password age (days)", $ADpasspolicy.MaxPasswordAge.days, "90", "Req. 8.2.4", "90", "Control: 0423", "1 to 60",
-            "Minimum password age (days)", $ADpasspolicy.MinPasswordAge.days, "N/A", "-", "1", "Control: 0423", "1 or more",
-            "Minimum password length (characters)", $ADpasspolicy.MinPasswordLength, "7", "Req. 8.2.3", "13", "Control: 0421", "14 or more",
-            "Password must meet complexity requirements", $ADpasspolicy.ComplexityEnabled, $true, "Req. 8.2.3", $true, "Control: 0421", $true,
-            "Store password using reversible encryption for all users in the domain", $ADpasspolicy.ReversibleEncryptionEnabled, "N/A", "-", "N/A", "-", $false,
-            "Account lockout duration (mins)", $ADpasspolicy.LockoutDuration.minutes, "0 (manual unlock) or 30", "Req. 8.1.7", "N/A", "-", "15 or more",
-            "Account lockout threshold (attempts)", $ADpasspolicy.LockoutThreshold, "1 to 6", "Req. 8.1.6", "1 to 5", "Control: 1403", "1 to 10",
-            "Reset account lockout counter after (mins)", $ADpasspolicy.LockoutObservationWindow.minutes, "N/A", "-", "N/A", "-", "15 or more" )
+            $ObjValues = @( "Enforce password history (passwords)", $ADpasspolicy.PasswordHistoryCount, "4", "4", "Req. 8.2.5 / 8.3.7", "N/A", "-", "24 or more",
+            "Maximum password age (days)", $ADpasspolicy.MaxPasswordAge.days, "90", "90", "Req. 8.2.4 / 8.3.9", "N/A", "-", "1 to 365",
+            "Minimum password age (days)", $ADpasspolicy.MinPasswordAge.days, "N/A", "N/A", "-", "N/A", "-", "1 or more",
+            "Minimum password length (characters)", $ADpasspolicy.MinPasswordLength, "7", "12", "Req. 8.2.3 / 8.3.6", "14", "Control: ISM-0421 Rev:8 Dec21", "14 or more",
+            "Password must meet complexity requirements", $ADpasspolicy.ComplexityEnabled, $true, $true, "Req. 8.2.3 / 8.3.6", "N/A", "-", $true,
+            "Store password using reversible encryption for all users in the domain", $ADpasspolicy.ReversibleEncryptionEnabled, "N/A", "N/A", "-", "N/A", "-", $false,
+            "Account lockout duration (mins)", $ADpasspolicy.LockoutDuration.minutes, "0 (manual unlock) or 30", "0 (manual unlock) or 30", "Req. 8.1.7 / 8.3.4", "N/A", "-", "15 or more",
+            "Account lockout threshold (attempts)", $ADpasspolicy.LockoutThreshold, "1 to 6", "1 to 10", "Req. 8.1.6 / 8.3.4", "1 to 5", "Control: ISM-1403 Rev:2 Oct19", "1 to 5",
+            "Reset account lockout counter after (mins)", $ADpasspolicy.LockoutObservationWindow.minutes, "N/A", "N/A", "-", "N/A", "-", "15 or more" )
 
             Remove-Variable ADpasspolicy
         }
@@ -7438,15 +7466,15 @@ Function Get-ADRDefaultPasswordPolicy
                 $LockoutDuration = 0
             }
 
-            $ObjValues = @( "Enforce password history (passwords)", $ObjDomain.PwdHistoryLength.value, "4", "Req. 8.2.5", "8", "Control: 0423", "24 or more",
-            "Maximum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) /-864000000000), "90", "Req. 8.2.4", "90", "Control: 0423", "1 to 60",
-            "Minimum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.minpwdage.value) /-864000000000), "N/A", "-", "1", "Control: 0423", "1 or more",
-            "Minimum password length (characters)", $ObjDomain.MinPwdLength.value, "7", "Req. 8.2.3", "13", "Control: 0421", "14 or more",
-            "Password must meet complexity requirements", $ComplexPasswords, $true, "Req. 8.2.3", $true, "Control: 0421", $true,
-            "Store password using reversible encryption for all users in the domain", $ReversibleEncryption, "N/A", "-", "N/A", "-", $false,
-            "Account lockout duration (mins)", $LockoutDuration, "0 (manual unlock) or 30", "Req. 8.1.7", "N/A", "-", "15 or more",
-            "Account lockout threshold (attempts)", $ObjDomain.LockoutThreshold.value, "1 to 6", "Req. 8.1.6", "1 to 5", "Control: 1403", "1 to 10",
-            "Reset account lockout counter after (mins)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutobservationWindow.value)/-600000000), "N/A", "-", "N/A", "-", "15 or more" )
+            $ObjValues = @( "Enforce password history (passwords)", $ObjDomain.PwdHistoryLength.value, "4", "4", "Req. 8.2.5 / 8.3.7", "N/A", "-", "24 or more",
+            "Maximum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) /-864000000000), "90", "90", "Req. 8.2.4 / 8.3.9", "N/A", "-", "1 to 365",
+            "Minimum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.minpwdage.value) /-864000000000), "N/A", "N/A", "-", "N/A", "-", "1 or more",
+            "Minimum password length (characters)", $ObjDomain.MinPwdLength.value, "7", "12", "Req. 8.2.3 / 8.3.6", "14", "Control: ISM-0421 Rev:8 Dec21", "14 or more",
+            "Password must meet complexity requirements", $ComplexPasswords, $true, $true, "Req. 8.2.3 / 8.3.6", "N/A", "-", $true,
+            "Store password using reversible encryption for all users in the domain", $ReversibleEncryption, "N/A", "N/A", "-", "N/A", "-", $false,
+            "Account lockout duration (mins)", $LockoutDuration, "0 (manual unlock) or 30", "0 (manual unlock) or 30", "Req. 8.1.7 / 8.3.4", "N/A", "-", "15 or more",
+            "Account lockout threshold (attempts)", $ObjDomain.LockoutThreshold.value, "1 to 6", "1 to 10", "Req. 8.1.6 / 8.3.4", "1 to 5", "Control: ISM-1403 Rev:2 Oct19", "1 to 5",
+            "Reset account lockout counter after (mins)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.lockoutobservationWindow.value)/-600000000), "N/A", "N/A", "-", "N/A", "-", "15 or more" )
 
             Remove-Variable pwdProperties
             Remove-Variable ComplexPasswords
@@ -7462,12 +7490,13 @@ Function Get-ADRDefaultPasswordPolicy
             $Obj = New-Object PSObject
             $Obj | Add-Member -MemberType NoteProperty -Name "Policy" -Value $ObjValues[$i]
             $Obj | Add-Member -MemberType NoteProperty -Name "Current Value" -Value $ObjValues[$i+1]
-            $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS Requirement" -Value $ObjValues[$i+2]
-            $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS v3.2.1" -Value $ObjValues[$i+3]
-            $Obj | Add-Member -MemberType NoteProperty -Name "ASD ISM" -Value $ObjValues[$i+4]
-            $Obj | Add-Member -MemberType NoteProperty -Name "2018 ISM Controls" -Value $ObjValues[$i+5]
-            $Obj | Add-Member -MemberType NoteProperty -Name "CIS Benchmark 2016" -Value $ObjValues[$i+6]
-            $i += 6
+            $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS v3.2.1" -Value $ObjValues[$i+2]
+            $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS v4.0" -Value $ObjValues[$i+3]
+            $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS Requirement" -Value $ObjValues[$i+4]
+            $Obj | Add-Member -MemberType NoteProperty -Name "ACSC ISM" -Value $ObjValues[$i+5]
+            $Obj | Add-Member -MemberType NoteProperty -Name "ISM Controls 10Mar2022" -Value $ObjValues[$i+6]
+            $Obj | Add-Member -MemberType NoteProperty -Name "CIS Benchmark 2022" -Value $ObjValues[$i+7]
+            $i += 7
             $ADPassPolObj += $Obj
         }
         Remove-Variable ObjValues
