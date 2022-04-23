@@ -11922,7 +11922,7 @@ Function Invoke-ADRecon
         [string] $Logo = "ADRecon"
     )
 
-    [string] $ADReconVersion = "v1.25"
+    [string] $ADReconVersion = "v1.26"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535)"
 
     If ($GenExcel)
