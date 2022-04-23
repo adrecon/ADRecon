@@ -50,8 +50,8 @@ These instructions will get you a copy of the tool up and running on your local 
 
 * .NET Framework 3.0 or later (Windows 7 includes 3.0)
 * PowerShell 2.0 or later (Windows 7 includes 2.0)
-    * Powershell Core currently not supported
-* A Windows host (Powershell for Linux is not supported)
+    * Powershell Core on Windows is supported (Tested on PowerShell v7.2.2 running on Windows 10)
+* A Windows host (Powershell for Linux/macOS is not supported)
 
 ### Optional
 

@@ -5197,6 +5197,21 @@ Function Export-ADRExcel
         [string] $Logo = "ADRecon"
     )
 
+    If ($PSVersionTable.PSEdition -eq "Core")
+    {
+        If ($PSVersionTable.Platform -eq "Win32NT")
+        {
+            $returndir = Get-Location
+            Set-Location C:\Windows\assembly\
+            $refFolder = (Get-ChildItem -Recurse  Microsoft.Office.Interop.Excel.dll).Directory
+            Set-Location $refFolder
+            Add-Type -AssemblyName "Microsoft.Office.Interop.Excel"
+            Set-Location $returndir
+            Remove-Variable returndir
+            Remove-Variable refFolder
+        }
+    }
+
     $ExcelPath = $((Convert-Path $ExcelPath).TrimEnd("\"))
     $ReportPath = -join($ExcelPath,'\','CSV-Files')
     If (!(Test-Path $ReportPath))
@@ -9915,7 +9930,22 @@ Function Get-ADRLAPS
     {
         Try
         {
-            $ADRLAPSCheck = [ADSI]::Exists("LDAP://CN=ms-Mcs-AdmPwd,$($objDomainRootDSE.schemaNamingContext)")
+            If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+            {
+                $ADRLAPSCheckDE = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/CN=ms-Mcs-AdmPwd,$($objDomainRootDSE.schemaNamingContext)", $Credential.UserName, $Credential.GetNetworkCredential().Password
+                If (!($ADRLAPSCheckDE.Path))
+                {
+                    $ADRLAPSCheck = $false
+                }
+                Else
+                {
+                    $ADRLAPSCheck = $true
+                }
+            }
+            Else
+            {
+                $ADRLAPSCheck = [ADSI]::Exists("LDAP://CN=ms-Mcs-AdmPwd,$($objDomainRootDSE.schemaNamingContext)")
+            }
         }
         Catch
         {
@@ -10905,7 +10935,15 @@ Function Get-ADRGPOReport
             # Suppress verbose output on module import
             $SaveVerbosePreference = $script:VerbosePreference
             $script:VerbosePreference = 'SilentlyContinue'
-            Import-Module GroupPolicy -WarningAction Stop -ErrorAction Stop | Out-Null
+
+            If ($PSVersionTable.PSEdition -eq "Core")
+            {
+                Import-Module GroupPolicy -SkipEditionCheck -WarningAction Stop -ErrorAction Stop | Out-Null
+            }
+            Else
+            {
+                Import-Module GroupPolicy -WarningAction Stop -ErrorAction Stop | Out-Null
+            }
             If ($SaveVerbosePreference)
             {
                 $script:VerbosePreference = $SaveVerbosePreference
@@ -11940,21 +11978,6 @@ Function Invoke-ADRecon
             Write-Output "[Invoke-ADRecon] Invalid Path ... Exiting"
             Return $null
         }
-
-        If ($PSVersionTable.PSEdition -eq "Core")
-        {
-            If ($PSVersionTable.Platform -eq "Win32NT")
-            {
-                $returndir = Get-Location
-                Set-Location C:\Windows\assembly\
-                $refFolder = (Get-ChildItem -Recurse  Microsoft.Office.Interop.Excel.dll).Directory
-                Set-Location $refFolder
-                Add-Type -AssemblyName "Microsoft.Office.Interop.Excel"
-                Set-Location $returndir
-                Remove-Variable returndir
-                Remove-Variable refFolder
-            }
-        }
         Export-ADRExcel -ExcelPath $GenExcel -Logo $Logo
         Return $null
     }
@@ -12066,54 +12089,47 @@ Function Invoke-ADRecon
     {
         $Advapi32 = Add-Type -MemberDefinition $Advapi32Def -Name "Advapi32" -Namespace ADRecon -PassThru
         $Kernel32 = Add-Type -MemberDefinition $Kernel32Def -Name "Kernel32" -Namespace ADRecon -PassThru
-        #Add-Type -TypeDefinition $PingCastleSMBScannerSource
         $CLR = ([System.Reflection.Assembly]::GetExecutingAssembly().ImageRuntimeVersion)[1]
         If ($Method -eq 'ADWS')
         {
-            <#
             If ($PSVersionTable.PSEdition -eq "Core")
             {
+                # Beginning in PowerShell 6, ReferencedAssemblies doesn't include the default .NET assemblies. You must include a specific reference to them in the value passed to this parameter.
+                # https://docs.microsoft.com/en-gb/powershell/module/Microsoft.PowerShell.Utility/Add-Type?view=powershell-7
+
+                <#
+                TODO: Instead of all assemblies, identify which ones are required.
+                $refFolder = Split-Path ([PSObject].Assembly.Location)
+                $refAssemblies = Get-ChildItem -Path $refFolder -Filter "*.dll" | Select-Object -Expand FullName
+
+                Add-Type -TypeDefinition $($ADWSSource + $PingCastleSMBScannerSource) -ReferencedAssemblies $($refAssemblies + ([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location + ([System.Reflection.Assembly]::LoadWithPartialName("System.Management.Automation")).Location + ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location)
+
+                Remove-Variable refFolder
+                Remove-Variable refAssemblies
+                #>
+
                 $refFolder = Join-Path -Path (Split-Path([PSObject].Assembly.Location)) -ChildPath "ref"
-                Add-Type -TypeDefinition $($ADWSSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(
-                    ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location
-                    (Join-Path -Path $refFolder -ChildPath "System.Linq.dll")
-                    #([System.Reflection.Assembly]::LoadWithPartialName("System.Linq")).Location
-                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Management.Automation")).Location
+                Add-Type -TypeDefinition $($ADWSSource + $PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(
                     (Join-Path -Path $refFolder -ChildPath "System.Collections.dll")
                     (Join-Path -Path $refFolder -ChildPath "System.Collections.NonGeneric.dll")
-                    (Join-Path -Path $refFolder -ChildPath "mscorlib.dll")
-                    (Join-Path -Path $refFolder -ChildPath "netstandard.dll")
-                    (Join-Path -Path $refFolder -ChildPath "System.Runtime.Extensions.dll")
-                    #([System.Reflection.Assembly]::LoadWithPartialName("System.Collections")).Location
-                    #([System.Reflection.Assembly]::LoadWithPartialName("System.Collections.NonGeneric")).Location
-                    #([System.Reflection.Assembly]::LoadWithPartialName("mscorlib")).Location
-                    #([System.Reflection.Assembly]::LoadWithPartialName("netstandard")).Location
-                    #([System.Reflection.Assembly]::LoadWithPartialName("System.Runtime.Extensions")).Location
                     (Join-Path -Path $refFolder -ChildPath "System.Threading.dll")
                     (Join-Path -Path $refFolder -ChildPath "System.Threading.Thread.dll")
-                    (Join-Path -Path $refFolder -ChildPath "System.Console.dll")
                     (Join-Path -Path $refFolder -ChildPath "System.Diagnostics.TraceSource.dll")
-                    ([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location
-                    (Join-Path -Path $refFolder -ChildPath "System.Net.Primitives.dll")
+                    ([System.Reflection.Assembly]::LoadWithPartialName("mscorlib")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Linq")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Private.Xml")).Location
                     ([System.Reflection.Assembly]::LoadWithPartialName("System.Security.AccessControl")).Location
-                    ([System.Reflection.Assembly]::LoadWithPartialName("System.IO.FileSystem.AccessControl")).Location
-                    #(Join-Path -Path $refFolder -ChildPath "System.Security.dll")
-                    #(Join-Path -Path $refFolder -ChildPath "System.Security.Principal.dll")
-                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Security.Principal")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Net.Sockets")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Net.Primitives")).Location
                     ([System.Reflection.Assembly]::LoadWithPartialName("System.Security.Principal.Windows")).Location
-                    (Join-Path -Path $refFolder -ChildPath "System.Xml.dll")
-                    (Join-Path -Path $refFolder -ChildPath "System.Xml.XmlDocument.dll")
-                    (Join-Path -Path $refFolder -ChildPath "System.Xml.ReaderWriter.dll")
-                    #([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location
-                    (Join-Path -Path $refFolder -ChildPath "System.Net.Sockets.dll")
-                    #([System.Reflection.Assembly]::LoadWithPartialName("System.Runtime")).Location
-                    #(Join-Path -Path $refFolder -ChildPath "System.Runtime.dll")
-                    #(Join-Path -Path $refFolder -ChildPath "System.Runtime.InteropServices.RuntimeInformation.dll")
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.IO.FileSystem.AccessControl")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Console")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("Microsoft.ActiveDirectory.Management")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Management.Automation")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location
                 ))
                 Remove-Variable refFolder
-                # Todo Error: you may need to supply runtime policy
             }
-            #>
             If ($CLR -eq "4")
             {
                 Add-Type -TypeDefinition $($ADWSSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(
@@ -12134,6 +12150,43 @@ Function Invoke-ADRecon
 
         If ($Method -eq 'LDAP')
         {
+            If ($PSVersionTable.PSEdition -eq "Core")
+            {
+                # Beginning in PowerShell 6, ReferencedAssemblies doesn't include the default .NET assemblies. You must include a specific reference to them in the value passed to this parameter.
+                # https://docs.microsoft.com/en-gb/powershell/module/Microsoft.PowerShell.Utility/Add-Type?view=powershell-7
+
+                <#
+                # TODO: Instead of all assemblies, identify which ones are required.
+
+                $refFolder = Join-Path ( Split-Path ([PSObject].Assembly.Location) ) "ref"
+                $refAssemblies = Get-ChildItem -Path $refFolder -Filter "*.dll" | Select-Object -Expand FullName
+                Add-Type -TypeDefinition $($LDAPSource + $PingCastleSMBScannerSource) -ReferencedAssemblies $( $refAssemblies + ([System.Reflection.Assembly]::LoadWithPartialName("System.Management.Automation")).Location + ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location )
+
+                Remove-Variable refFolder
+                Remove-Variable refAssemblies
+                #>
+
+                $refFolder = Join-Path -Path (Split-Path([PSObject].Assembly.Location)) -ChildPath "ref"
+                Add-Type -TypeDefinition $($LDAPSource + $PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(
+                    (Join-Path -Path $refFolder -ChildPath "System.Collections.dll")
+                    (Join-Path -Path $refFolder -ChildPath "System.Collections.NonGeneric.dll")
+                    (Join-Path -Path $refFolder -ChildPath "System.Threading.dll")
+                    (Join-Path -Path $refFolder -ChildPath "System.Threading.Thread.dll")
+                    (Join-Path -Path $refFolder -ChildPath "System.Diagnostics.TraceSource.dll")
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Linq")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Private.Xml")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Security.AccessControl")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Net.Sockets")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Net.Primitives")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Security.Principal.Windows")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.IO.FileSystem.AccessControl")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Net.NameResolution")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Console")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.Management.Automation")).Location
+                    ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location
+                ))
+                Remove-Variable refFolder
+            }
             If ($CLR -eq "4")
             {
                 Add-Type -TypeDefinition $($LDAPSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(
@@ -12464,6 +12517,7 @@ Function Invoke-ADRecon
         }
         Set-Location ADR:
         Write-Debug "ADR PSDrive Created"
+        #return $null
     }
 
     If ($Method -eq 'LDAP')
@@ -12513,6 +12567,7 @@ Function Invoke-ADRecon
             }
         }
         Write-Debug "LDAP Bing Successful"
+        #return $null
     }
 
     Write-Output "[*] Commencing - $date"
