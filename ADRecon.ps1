@@ -7792,7 +7792,7 @@ Function Get-ADRUser
         [int] $DormantTimeSpan = 90,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10,
@@ -8125,7 +8125,7 @@ Function Get-ADRGroup
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10,
@@ -8259,7 +8259,7 @@ Function Get-ADRGroupMember
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10
@@ -8480,7 +8480,7 @@ Function Get-ADROU
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10
@@ -8585,7 +8585,7 @@ Function Get-ADRGPO
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10
@@ -8686,7 +8686,7 @@ Function Get-ADRGPLink
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10
@@ -9121,7 +9121,7 @@ Function Get-ADRDNSZone
         [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $true)]
         [string] $ADROutputDir,
@@ -9523,7 +9523,7 @@ Function Get-ADRPrinter
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10
@@ -9658,7 +9658,7 @@ Function Get-ADRComputer
         [int] $PassMaxAge = 30,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10,
@@ -9857,7 +9857,7 @@ Function Get-ADRLAPS
         [DirectoryServices.DirectoryEntry] $objDomainRootDSE,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10
@@ -10572,7 +10572,7 @@ Function Get-ADRACL
         [bool] $ResolveSID = $false,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10,
@@ -11406,7 +11406,7 @@ Function Get-ADRDomainAccountsusedforServiceLogon
         [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty,
 
         [Parameter(Mandatory = $true)]
-        [int] $PageSize,
+        [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
         [int] $Threads = 10
@@ -11922,6 +11922,14 @@ Function Invoke-ADRecon
         [string] $Logo = "ADRecon"
     )
 
+    If ($PSVersionTable.PSEdition -eq "Core")
+    {
+        If ($PSVersionTable.Platform -ne "Win32NT")
+        {
+            Write-Warning "[Invoke-ADRecon] Currently not supported ... Exiting"
+        }
+    }
+
     [string] $ADReconVersion = "v1.26"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535)"
 
@@ -11931,6 +11939,21 @@ Function Invoke-ADRecon
         {
             Write-Output "[Invoke-ADRecon] Invalid Path ... Exiting"
             Return $null
+        }
+
+        If ($PSVersionTable.PSEdition -eq "Core")
+        {
+            If ($PSVersionTable.Platform -eq "Win32NT")
+            {
+                $returndir = Get-Location
+                Set-Location C:\Windows\assembly\
+                $refFolder = (Get-ChildItem -Recurse  Microsoft.Office.Interop.Excel.dll).Directory
+                Set-Location $refFolder
+                Add-Type -AssemblyName "Microsoft.Office.Interop.Excel"
+                Set-Location $returndir
+                Remove-Variable returndir
+                Remove-Variable refFolder
+            }
         }
         Export-ADRExcel -ExcelPath $GenExcel -Logo $Logo
         Return $null
