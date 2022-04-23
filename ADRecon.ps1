@@ -9831,6 +9831,10 @@ Function Get-ADRLAPS
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
 
+.PARAMETER objDomainRootDSE
+    [DirectoryServices.DirectoryEntry]
+    Domain Directory Entry object.
+
 .PARAMETER PageSize
     [int]
     The PageSize to set for the LDAP searcher object. Default 200.
@@ -9848,6 +9852,9 @@ Function Get-ADRLAPS
 
         [Parameter(Mandatory = $false)]
         [DirectoryServices.DirectoryEntry] $objDomain,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomainRootDSE,
 
         [Parameter(Mandatory = $true)]
         [int] $PageSize,
@@ -9872,7 +9879,7 @@ Function Get-ADRLAPS
 
         Try
         {
-            $ADComputers = @( Get-ADObject "CN=ms-Mcs-AdmPwd,CN=Schema,CN=Configuration,$($ADDomain.DistinguishedName)" )
+            $ADComputers = @( Get-ADObject "CN=ms-Mcs-AdmPwd,$((Get-ADRootDSE).schemaNamingContext)" )
         }
         Catch
         {
@@ -9908,7 +9915,7 @@ Function Get-ADRLAPS
     {
         Try
         {
-            $ADRLAPSCheck = [ADSI]::Exists("LDAP://CN=ms-Mcs-AdmPwd,CN=Schema,CN=Configuration,$($objDomain.distinguishedName)")
+            $ADRLAPSCheck = [ADSI]::Exists("LDAP://CN=ms-Mcs-AdmPwd,$($objDomainRootDSE.schemaNamingContext)")
         }
         Catch
         {
@@ -12734,7 +12741,7 @@ Function Invoke-ADRecon
     If ($ADRLAPS)
     {
         Write-Output "[-] LAPS - Needs Privileged Account"
-        $ADRObject = Get-ADRLAPS -Method $Method -objDomain $objDomain -PageSize $PageSize -Threads $Threads
+        $ADRObject = Get-ADRLAPS -Method $Method -objDomain $objDomain -objDomainRootDSE $objDomainRootDSE -PageSize $PageSize -Threads $Threads
         If ($ADRObject)
         {
             Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "LAPS"
