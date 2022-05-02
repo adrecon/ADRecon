@@ -1618,8 +1618,15 @@ namespace ADRecon
                 try
                 {
                     PSObject AdComputer = (PSObject) record;
+                    bool? Enabled = null;
                     bool PasswordStored = false;
                     DateTime? CurrentExpiration = null;
+                    // When the user is not allowed to query the UserAccountControl attribute.
+                    if (AdComputer.Members["userAccountControl"].Value != null)
+                    {
+                        var userFlags = (UACFlags) AdComputer.Members["userAccountControl"].Value;
+                        Enabled = !((userFlags & UACFlags.ACCOUNTDISABLE) == UACFlags.ACCOUNTDISABLE);
+                    }
                     try
                     {
                         CurrentExpiration = DateTime.FromFileTime((long)(AdComputer.Members["ms-Mcs-AdmPwdExpirationTime"].Value));
@@ -1631,6 +1638,7 @@ namespace ADRecon
                     }
                     PSObject LAPSObj = new PSObject();
                     LAPSObj.Members.Add(new PSNoteProperty("Hostname", (AdComputer.Members["DNSHostName"].Value != null ? AdComputer.Members["DNSHostName"].Value : AdComputer.Members["CN"].Value )));
+                    LAPSObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                     LAPSObj.Members.Add(new PSNoteProperty("Stored", PasswordStored));
                     LAPSObj.Members.Add(new PSNoteProperty("Readable", (AdComputer.Members["ms-Mcs-AdmPwd"].Value != null ? true : false)));
                     LAPSObj.Members.Add(new PSNoteProperty("Password", AdComputer.Members["ms-Mcs-AdmPwd"].Value));
@@ -3341,8 +3349,15 @@ namespace ADRecon
                 try
                 {
                     SearchResult AdComputer = (SearchResult) record;
+                    bool? Enabled = null;
                     bool PasswordStored = false;
                     DateTime? CurrentExpiration = null;
+                    // When the user is not allowed to query the UserAccountControl attribute.
+                    if (AdComputer.Properties["useraccountcontrol"].Count != 0)
+                    {
+                        var userFlags = (UACFlags) AdComputer.Properties["useraccountcontrol"][0];
+                        Enabled = !((userFlags & UACFlags.ACCOUNTDISABLE) == UACFlags.ACCOUNTDISABLE);
+                    }
                     if (AdComputer.Properties["ms-mcs-admpwdexpirationtime"].Count != 0)
                     {
                         CurrentExpiration = DateTime.FromFileTime((long)(AdComputer.Properties["ms-mcs-admpwdexpirationtime"][0]));
@@ -3350,6 +3365,7 @@ namespace ADRecon
                     }
                     PSObject LAPSObj = new PSObject();
                     LAPSObj.Members.Add(new PSNoteProperty("Hostname", (AdComputer.Properties["dnshostname"].Count != 0 ? AdComputer.Properties["dnshostname"][0] : AdComputer.Properties["cn"][0] )));
+                    LAPSObj.Members.Add(new PSNoteProperty("Enabled", Enabled));
                     LAPSObj.Members.Add(new PSNoteProperty("Stored", PasswordStored));
                     LAPSObj.Members.Add(new PSNoteProperty("Readable", (AdComputer.Properties["ms-mcs-admpwd"].Count != 0 ? true : false)));
                     LAPSObj.Members.Add(new PSNoteProperty("Password", (AdComputer.Properties["ms-mcs-admpwd"].Count != 0 ? AdComputer.Properties["ms-mcs-admpwd"][0] : null)));
@@ -5784,11 +5800,56 @@ Function Export-ADRExcel
             Get-ADRExcelAttributeStats -SrcSheetName "Computers" -Title1 "Computer Accounts in AD" -PivotTableName "Computer Accounts Status" -PivotRows "Enabled" -PivotValues "UserName" -PivotPercentage "UserName" -Title2 "Status of Computer Accounts" -ObjAttributes $ObjAttributes
             Remove-Variable ObjAttributes
 
-            Get-ADRExcelChart -ChartType "xlPie" -ChartLayout 3 -ChartTitle "Computer Accounts in AD" -RangetoCover "A11:D23" -ChartData $workbook.Worksheets.Item(1).Range("A3:A4,B3:B4")
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(10,1) , "" , "Computers!A1", "", "Raw Data") | Out-Null
+            #Todo: Replace with a better way to include the LAPS Stats
+            For($i = 1 ; $i -le $workbook.Sheets.count ; $i++)
+            {
+                $SrcSheetName = "LAPS"
+                If ($workbook.Worksheets.item($i).name -eq $SrcSheetName)
+                {
+                    $ADRLAPSCheck = $true
+                    break
+                }
+                Else
+                {
+                   $ADRLAPSCheck = $false
+                }
+            }
+            If ($ADRLAPSCheck)
+            {
+                $worksheet = $workbook.Worksheets.Item(1)
+                $ExcelColumn = $workbook.Sheets.Item("LAPS").Columns.Find("Stored")
+                $ColAddress = "$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1)):$($ExcelColumn.Address($false,$false).Substring(0,$ExcelColumn.Address($false,$false).Length-1))"
+                $i = 9
+                $row = 9
+                $column = 6
+                $worksheet.Cells.Item($row, $column) = "LAPS"
+                $worksheet.Cells.Item($row, $column+1).Formula = "=COUNTIFS('" + $SrcSheetName + "'!" + "B:B" + ',"TRUE",' + "'" + $SrcSheetName + "'!" + $ColAddress + ',' + "TRUE" + ')'
+                $worksheet.Cells.Item($row, $column+2).Formula = '=IFERROR(G' + $i + '/VLOOKUP("Enabled",A3:B6,2,FALSE),0)'
+                $worksheet.Cells.Item($row, $column+3).Formula = "=COUNTIFS('" + $SrcSheetName + "'!" + "B:B" + ',"FALSE",' + "'" + $SrcSheetName + "'!" + $ColAddress + ',' + "TRUE" + ')'
+                $worksheet.Cells.Item($row, $column+4).Formula = '=IFERROR(I' + $i + '/VLOOKUP("Disabled",A3:B6,2,FALSE),0)'
+                $worksheet.Cells.Item($row, $column+5).Formula = "=COUNTIF('" + $SrcSheetName + "'!" + $ColAddress + ',' + "TRUE" + ')'
+                $worksheet.Cells.Item($row, $column+6).Formula = '=IFERROR(K' + $i + '/VLOOKUP("Total",A3:B6,2,FALSE),0)'
 
-            Get-ADRExcelChart -ChartType "xlBarClustered" -ChartLayout 1 -ChartTitle "Status of Computer Accounts" -RangetoCover "F11:L23" -ChartData $workbook.Worksheets.Item(1).Range("F2:F8,G2:G8")
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(10,6) , "" , "Computers!A1", "", "Raw Data") | Out-Null
+                # http://www.excelhowto.com/macros/formatting-a-range-of-cells-in-excel-vba/
+                "H", "J" , "L" | ForEach-Object {
+                    $rng = $_ + "9" + ":" + $_ + $($row)
+                    $worksheet.Range($rng).NumberFormat = "0.00%"
+                }
+
+                Get-ADRExcelChart -ChartType "xlPie" -ChartLayout 3 -ChartTitle "Computer Accounts in AD" -RangetoCover "A12:D24" -ChartData $workbook.Worksheets.Item(1).Range("A3:A4,B3:B4")
+                $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(11,1) , "" , "Computers!A1", "", "Raw Data") | Out-Null
+
+                Get-ADRExcelChart -ChartType "xlBarClustered" -ChartLayout 1 -ChartTitle "Status of Computer Accounts" -RangetoCover "F12:L24" -ChartData $workbook.Worksheets.Item(1).Range("F2:F9,G2:G9")
+                $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(11,6) , "" , "Computers!A1", "", "Raw Data") | Out-Null
+            }
+            Else
+            {
+                Get-ADRExcelChart -ChartType "xlPie" -ChartLayout 3 -ChartTitle "Computer Accounts in AD" -RangetoCover "A11:D23" -ChartData $workbook.Worksheets.Item(1).Range("A3:A4,B3:B4")
+                $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(10,1) , "" , "Computers!A1", "", "Raw Data") | Out-Null
+
+                Get-ADRExcelChart -ChartType "xlBarClustered" -ChartLayout 1 -ChartTitle "Status of Computer Accounts" -RangetoCover "F11:L23" -ChartData $workbook.Worksheets.Item(1).Range("F2:F8,G2:G8")
+                $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(10,6) , "" , "Computers!A1", "", "Raw Data") | Out-Null
+            }
 
             $workbook.Worksheets.Item(1).UsedRange.EntireColumn.AutoFit() | Out-Null
             $excel.Windows.Item(1).Displaygridlines = $false
@@ -6431,7 +6492,7 @@ Function Get-ADRForest
             {
                 Try
                 {
-                    $ADRecycleBin = Get-ADOptionalFeature -Identity "Recycle Bin Feature"
+                    $ADRecycleBin = Get-ADOptionalFeature -Identity "Recycle Bin Feature" -Properties whenCreated
                 }
                 Catch
                 {
@@ -6474,6 +6535,9 @@ Function Get-ADRForest
             {
                 $ForestMode = $ADForest.ForestMode
             }
+
+            # LAPS Check
+            $ADRLAPSCheck = Get-ADRLAPSCheck -Method ADWS
 
             $ObjValues = @("Name", $ADForest.Name, "Functional Level", $ForestMode, "Domain Naming Master", $ADForest.DomainNamingMaster, "Schema Master", $ADForest.SchemaMaster, "RootDomain", $ADForest.RootDomain, "Domain Count", $ADForest.Domains.Count, "Site Count", $ADForest.Sites.Count, "Global Catalog Count", $ADForest.GlobalCatalogs.Count)
 
@@ -6530,6 +6594,12 @@ Function Get-ADRForest
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Enabled"
                     $ForestObj += $Obj
+
+                    $Obj = New-Object PSObject
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Recycle Bin Enabled Date"
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADRecycleBin.whenCreated
+                    $ForestObj += $Obj
+
                     For($i=0; $i -lt $($ADRecycleBin.EnabledScopes.Count); $i++)
                     {
                         $Obj = New-Object PSObject
@@ -6579,6 +6649,25 @@ Function Get-ADRForest
                 $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
                 $ForestObj += $Obj
             }
+
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "LAPS"
+            If ($ADRLAPSCheck)
+            {
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Enabled"
+                $ForestObj += $Obj
+
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "LAPS Installed Date"
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $((Get-ADObject "CN=ms-Mcs-AdmPwd,$((Get-ADRootDSE).schemaNamingContext)" -Properties whenCreated).whenCreated)
+                $ForestObj += $Obj
+            }
+            Else
+            {
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
+                $ForestObj += $Obj
+            }
+
             Remove-Variable ADForest
         }
     }
@@ -6640,12 +6729,8 @@ Function Get-ADRForest
                 Try
                 {
                     $SearchPath = "CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration"
-                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
-                    $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
-                    $ADRecycleBin = $objSearcherPath.FindAll()
+                    $ADRecycleBin = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName, $Credential.GetNetworkCredential().Password
                     Remove-Variable SearchPath
-                    $objSearchPath.Dispose()
-                    $objSearcherPath.Dispose()
                 }
                 Catch
                 {
@@ -6659,12 +6744,8 @@ Function Get-ADRForest
                 Try
                 {
                     $SearchPath = "CN=Privileged Access Management Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration"
-                    $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName,$Credential.GetNetworkCredential().Password
-                    $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher $objSearchPath
-                    $PrivilegedAccessManagement = $objSearcherPath.FindAll()
+                    $PrivilegedAccessManagement = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/$($SearchPath),$($objDomain.distinguishedName)", $Credential.UserName, $Credential.GetNetworkCredential().Password
                     Remove-Variable SearchPath
-                    $objSearchPath.Dispose()
-                    $objSearcherPath.Dispose()
                 }
                 Catch
                 {
@@ -6692,6 +6773,9 @@ Function Get-ADRForest
                 $PrivilegedAccessManagement = ([ADSI]"LDAP://CN=Privileged Access Management Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,$($objDomain.distinguishedName)")
             }
         }
+
+        # LAPS Check
+        $ADRLAPSCheck = Get-ADRLAPSCheck -Method LDAP -objDomainRootDSE $objDomainRootDSE -DomainController $DomainController -Credential $Credential
 
         If ($ADForest)
         {
@@ -6766,6 +6850,12 @@ Function Get-ADRForest
                 {
                     $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Enabled"
                     $ForestObj += $Obj
+
+                    $Obj = New-Object PSObject
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "Recycle Bin Enabled Date"
+                    $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADRecycleBin.whencreated.value
+                    $ForestObj += $Obj
+
                     For($i=0; $i -lt $($ADRecycleBin.Properties.'msds-enabledfeaturebl'.Count); $i++)
                     {
                         $Obj = New-Object PSObject
@@ -6779,7 +6869,7 @@ Function Get-ADRForest
                     $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
                     $ForestObj += $Obj
                 }
-                Remove-Variable ADRecycleBin
+                $ADRecycleBin.Dispose()
             }
             Else
             {
@@ -6808,12 +6898,34 @@ Function Get-ADRForest
                     $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
                     $ForestObj += $Obj
                 }
-                Remove-Variable PrivilegedAccessManagement
+                $PrivilegedAccessManagement.dispose()
             }
             Else
             {
                 $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Disabled"
                 $ForestObj += $Obj
+            }
+
+            $Obj = New-Object PSObject
+            $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "LAPS"
+            If ($ADRLAPSCheck)
+            {
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value "Enabled"
+                $ForestObj += $Obj
+
+                $Obj = New-Object PSObject
+                $Obj | Add-Member -MemberType NoteProperty -Name "Category" -Value "LAPS Installed Date"
+                If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+                {
+                    $ADRLAPSInstalledDate = (New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/CN=ms-Mcs-AdmPwd,$($objDomainRootDSE.schemaNamingContext)", $Credential.UserName, $Credential.GetNetworkCredential().Password).whencreated.value
+                }
+                Else
+                {
+                    $ADRLAPSInstalledDate = ([ADSI]("LDAP://CN=ms-Mcs-AdmPwd,$($objDomainRootDSE.schemaNamingContext)")).whencreated.value
+                }
+                $Obj | Add-Member -MemberType NoteProperty -Name "Value" -Value $ADRLAPSInstalledDate
+                $ForestObj += $Obj
+                Remove-Variable ADRLAPSInstalledDate
             }
 
             Remove-Variable ADForest
@@ -9828,6 +9940,111 @@ Function Get-ADRComputer
     }
 }
 
+Function Get-ADRLAPSCheck
+{
+<#
+.SYNOPSIS
+    Checks if LAPS (local administrator) is enabled in the current (or specified) domain.
+
+.DESCRIPTION
+    Checks if LAPS (local administrator) is enabled in the current (or specified) domain.
+
+.PARAMETER Method
+    [string]
+    Which method to use; ADWS (default), LDAP.
+
+.PARAMETER objDomainRootDSE
+    [DirectoryServices.DirectoryEntry]
+    Domain Directory Entry object.
+
+.PARAMETER DomainController
+    [string]
+    IP Address of the Domain Controller.
+
+.PARAMETER Credential
+    [Management.Automation.PSCredential]
+    Credentials.
+
+.OUTPUTS
+    Bool.
+#>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Method,
+
+        [Parameter(Mandatory = $false)]
+        [DirectoryServices.DirectoryEntry] $objDomainRootDSE,
+
+        [Parameter(Mandatory = $false)]
+        [string] $DomainController,
+
+        [Parameter(Mandatory = $false)]
+        [Management.Automation.PSCredential] $Credential = [Management.Automation.PSCredential]::Empty
+    )
+
+    If ($Method -eq 'ADWS')
+    {
+        Try
+        {
+            $ADRLAPSCheck = @( Get-ADObject "CN=ms-Mcs-AdmPwd,$((Get-ADRootDSE).schemaNamingContext)" )
+        }
+        Catch
+        {
+            Write-Verbose "[*] LAPS is not implemented."
+            Return $false
+        }
+
+        If ($ADRLAPSCheck)
+        {
+            Remove-Variable ADRLAPSCheck
+            Return $true
+        }
+        Else
+        {
+            Return $false
+        }
+    }
+
+    If ($Method -eq 'LDAP')
+    {
+        Try
+        {
+            If ($Credential -ne [Management.Automation.PSCredential]::Empty)
+            {
+                $ADRLAPSCheckDSE = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/CN=ms-Mcs-AdmPwd,$($objDomainRootDSE.schemaNamingContext)", $Credential.UserName, $Credential.GetNetworkCredential().Password
+                If (-Not ($ADRLAPSCheckDSE.Path))
+                {
+                    $ADRLAPSCheck = $false
+                }
+                Else
+                {
+                    $ADRLAPSCheck = $true
+                    $ADRLAPSCheckDSE.dispose()
+                }
+            }
+            Else
+            {
+                $ADRLAPSCheck = [ADSI]::Exists("LDAP://CN=ms-Mcs-AdmPwd,$($objDomainRootDSE.schemaNamingContext)")
+            }
+        }
+        Catch
+        {
+            Write-Verbose "[Get-ADRLAPSCheck] Error while checking for existance of LAPS Properties"
+            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+        }
+
+        If ($ADRLAPSCheck)
+        {
+            Remove-Variable ADRLAPSCheck
+            Return $true
+        }
+        Else
+        {
+            Return $false
+        }
+    }
+}
+
 # based on https://github.com/kfosaaen/Get-LAPSPasswords/blob/master/Get-LAPSPasswords.ps1
 Function Get-ADRLAPS
 {
@@ -9843,10 +10060,6 @@ Function Get-ADRLAPS
     Which method to use; ADWS (default), LDAP.
 
 .PARAMETER objDomain
-    [DirectoryServices.DirectoryEntry]
-    Domain Directory Entry object.
-
-.PARAMETER objDomainRootDSE
     [DirectoryServices.DirectoryEntry]
     Domain Directory Entry object.
 
@@ -9869,9 +10082,6 @@ Function Get-ADRLAPS
         [DirectoryServices.DirectoryEntry] $objDomain,
 
         [Parameter(Mandatory = $false)]
-        [DirectoryServices.DirectoryEntry] $objDomainRootDSE,
-
-        [Parameter(Mandatory = $true)]
         [int] $PageSize = 200,
 
         [Parameter(Mandatory = $false)]
@@ -9880,36 +10090,9 @@ Function Get-ADRLAPS
 
     If ($Method -eq 'ADWS')
     {
-
         Try
         {
-            $ADDomain = Get-ADDomain
-        }
-        Catch
-        {
-            Write-Warning "[Get-ADRLAPS] Error getting Domain Context"
-            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-            Return $null
-        }
-
-        Try
-        {
-            $ADComputers = @( Get-ADObject "CN=ms-Mcs-AdmPwd,$((Get-ADRootDSE).schemaNamingContext)" )
-        }
-        Catch
-        {
-            Write-Warning "[*] LAPS is not implemented."
-            Return $null
-        }
-
-        If ($ADDomain)
-        {
-            Remove-Variable ADDomain
-        }
-
-        Try
-        {
-            $ADComputers = @( Get-ADObject -LDAPFilter "(samAccountType=805306369)" -Properties CN,DNSHostName,'ms-Mcs-AdmPwd','ms-Mcs-AdmPwdExpirationTime' -ResultPageSize $PageSize )
+            $ADComputers = @( Get-ADObject -LDAPFilter "(samAccountType=805306369)" -Properties CN, DNSHostName, 'ms-Mcs-AdmPwd', 'ms-Mcs-AdmPwdExpirationTime',useraccountcontrol -ResultPageSize $PageSize )
         }
         Catch
         {
@@ -9928,45 +10111,10 @@ Function Get-ADRLAPS
 
     If ($Method -eq 'LDAP')
     {
-        Try
-        {
-            If ($Credential -ne [Management.Automation.PSCredential]::Empty)
-            {
-                $ADRLAPSCheckDE = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($DomainController)/CN=ms-Mcs-AdmPwd,$($objDomainRootDSE.schemaNamingContext)", $Credential.UserName, $Credential.GetNetworkCredential().Password
-                If (!($ADRLAPSCheckDE.Path))
-                {
-                    $ADRLAPSCheck = $false
-                }
-                Else
-                {
-                    $ADRLAPSCheck = $true
-                }
-            }
-            Else
-            {
-                $ADRLAPSCheck = [ADSI]::Exists("LDAP://CN=ms-Mcs-AdmPwd,$($objDomainRootDSE.schemaNamingContext)")
-            }
-        }
-        Catch
-        {
-            Write-Warning "[Get-ADRLAPS] Error while checking for existance of LAPS Properties"
-            Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
-            Return $null
-
-        }
-
-        If (!$ADRLAPSCheck)
-        {
-                Write-Warning "[*] LAPS is not implemented."
-                Return $null
-        }
-
-        Remove-Variable ADRLAPSCheck
-
         $objSearcher = New-Object System.DirectoryServices.DirectorySearcher $objDomain
         $ObjSearcher.PageSize = $PageSize
         $ObjSearcher.Filter = "(samAccountType=805306369)"
-        $ObjSearcher.PropertiesToLoad.AddRange(("cn","dnshostname","ms-mcs-admpwd","ms-mcs-admpwdexpirationtime"))
+        $ObjSearcher.PropertiesToLoad.AddRange(("cn","dnshostname","ms-mcs-admpwd","ms-mcs-admpwdexpirationtime","useraccountcontrol"))
         $ObjSearcher.SearchScope = "Subtree"
         Try
         {
@@ -11965,15 +12113,16 @@ Function Invoke-ADRecon
         If ($PSVersionTable.Platform -ne "Win32NT")
         {
             Write-Warning "[Invoke-ADRecon] Currently not supported ... Exiting"
+            Return $null
         }
     }
 
-    [string] $ADReconVersion = "v1.26"
+    [string] $ADReconVersion = "v1.27"
     Write-Output "[*] ADRecon $ADReconVersion by Prashant Mahajan (@prashant3535)"
 
     If ($GenExcel)
     {
-        If (!(Test-Path $GenExcel))
+        If (-Not (Test-Path $GenExcel))
         {
             Write-Output "[Invoke-ADRecon] Invalid Path ... Exiting"
             Return $null
@@ -12798,12 +12947,12 @@ Function Invoke-ADRecon
     }
     If ($ADRComputers -or $ADRComputerSPNs)
     {
-        If (!$ADRComputerSPNs)
+        If (-Not $ADRComputerSPNs)
         {
             Write-Output "[-] Computers - May take some time"
             $ADRComputerSPNs = $false
         }
-        ElseIf (!$ADRComputers)
+        ElseIf (-Not $ADRComputers)
         {
             Write-Output "[-] Computer SPNs"
             $ADRComputers = $false
@@ -12812,14 +12961,27 @@ Function Invoke-ADRecon
         {
             Write-Output "[-] Computers and SPNs - May take some time"
         }
+
         Get-ADRComputer -Method $Method -date $date -objDomain $objDomain -DormantTimeSpan $DormantTimeSpan -PassMaxAge $PassMaxAge -PageSize $PageSize -Threads $Threads -ADRComputers $ADRComputers -ADRComputerSPNs $ADRComputerSPNs -OnlyEnabled $OnlyEnabled
+
         Remove-Variable ADRComputers
         Remove-Variable ADRComputerSPNs
     }
     If ($ADRLAPS)
     {
-        Write-Output "[-] LAPS - Needs Privileged Account"
-        $ADRObject = Get-ADRLAPS -Method $Method -objDomain $objDomain -objDomainRootDSE $objDomainRootDSE -PageSize $PageSize -Threads $Threads
+        Write-Output "[-] LAPS - Needs Privileged Account to get the passwords"
+
+        $ADRLAPSCheck = Get-ADRLAPSCheck -Method $Method -objDomainRootDSE $objDomainRootDSE -DomainController $DomainController -Credential $Credential
+
+        If ($ADRLAPSCheck)
+        {
+            $ADRObject = Get-ADRLAPS -Method $Method -objDomain $objDomain -PageSize $PageSize -Threads $Threads
+        }
+        Else
+        {
+            Write-Warning "[*] LAPS is not implemented."
+        }
+
         If ($ADRObject)
         {
             Export-ADR -ADRObj $ADRObject -ADROutputDir $ADROutputDir -OutputType $OutputType -ADRModuleName "LAPS"
