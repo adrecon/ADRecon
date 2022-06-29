@@ -7695,14 +7695,9 @@ Function Get-ADRFineGrainedPasswordPolicy
             $ADPassPolObj = @()
 
             $ADFinepasspolicy | ForEach-Object {
-                For($i=0; $i -lt $($_.AppliesTo.Count); $i++)
-                {
-                    $AppliesTo = $AppliesTo + "," + $_.AppliesTo[$i]
-                }
-                If ($null -ne $AppliesTo)
-                {
-                    $AppliesTo = $AppliesTo.TrimStart(",")
-                }
+                $AppliesTo = ""
+                $AppliesTo = $_.AppliesTo -join ", "
+
                 $ObjValues = @("Name", $($_.Name), "Applies To", $AppliesTo, "Enforce password history", $_.PasswordHistoryCount, "Maximum password age (days)", $_.MaxPasswordAge.days, "Minimum password age (days)", $_.MinPasswordAge.days, "Minimum password length", $_.MinPasswordLength, "Password must meet complexity requirements", $_.ComplexityEnabled, "Store password using reversible encryption", $_.ReversibleEncryptionEnabled, "Account lockout duration (mins)", $_.LockoutDuration.minutes, "Account lockout threshold", $_.LockoutThreshold, "Reset account lockout counter after (mins)", $_.LockoutObservationWindow.minutes, "Precedence", $($_.Precedence))
                 For ($i = 0; $i -lt $($ObjValues.Count); $i++)
                 {
@@ -7742,14 +7737,9 @@ Function Get-ADRFineGrainedPasswordPolicy
                 {
                     $ADPassPolObj = @()
                     $ADFinepasspolicy | ForEach-Object {
-                    For($i=0; $i -lt $($_.Properties.'msds-psoappliesto'.Count); $i++)
-                    {
-                        $AppliesTo = $AppliesTo + "," + $_.Properties.'msds-psoappliesto'[$i]
-                    }
-                    If ($null -ne $AppliesTo)
-                    {
-                        $AppliesTo = $AppliesTo.TrimStart(",")
-                    }
+                        $AppliesTo = ""
+                        $AppliesTo = $_.Properties.'msds-psoappliesto' -join ", "
+
                         $ObjValues = @("Name", $($_.Properties.name), "Applies To", $AppliesTo, "Enforce password history", $($_.Properties.'msds-passwordhistorylength'), "Maximum password age (days)", $($($_.Properties.'msds-maximumpasswordage') /-864000000000), "Minimum password age (days)", $($($_.Properties.'msds-minimumpasswordage') /-864000000000), "Minimum password length", $($_.Properties.'msds-minimumpasswordlength'), "Password must meet complexity requirements", $($_.Properties.'msds-passwordcomplexityenabled'), "Store password using reversible encryption", $($_.Properties.'msds-passwordreversibleencryptionenabled'), "Account lockout duration (mins)", $($($_.Properties.'msds-lockoutduration')/-600000000), "Account lockout threshold", $($_.Properties.'msds-lockoutthreshold'), "Reset account lockout counter after (mins)", $($($_.Properties.'msds-lockoutobservationwindow')/-600000000), "Precedence", $($_.Properties.'msds-passwordsettingsprecedence'))
                         For ($i = 0; $i -lt $($ObjValues.Count); $i++)
                         {
