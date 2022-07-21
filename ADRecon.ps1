@@ -5457,7 +5457,7 @@ Function Export-ADRExcel
             #"F2", '=IF(B2<8,TRUE, FALSE)'
 
             # ACSC ISM Maximum password age (days)
-            #"F3", '=IF(OR(B3=0,B3>90),TRUE, FALSE)'
+            "F3", '=IF(OR(B3=0,B3>365),TRUE, FALSE)'
 
             # ACSC ISM Minimum password age (days)
             #"F4", '=IF(B4=0,TRUE, FALSE)'
@@ -7608,7 +7608,7 @@ Function Get-ADRDefaultPasswordPolicy
         If ($ADpasspolicy)
         {
             $ObjValues = @( "Enforce password history (passwords)", $ADpasspolicy.PasswordHistoryCount, "4", "4", "Req. 8.2.5 / 8.3.7", "N/A", "-", "24 or more",
-            "Maximum password age (days)", $ADpasspolicy.MaxPasswordAge.days, "90", "90", "Req. 8.2.4 / 8.3.9", "N/A", "-", "1 to 365",
+            "Maximum password age (days)", $ADpasspolicy.MaxPasswordAge.days, "90", "90", "Req. 8.2.4 / 8.3.9", "365", "ISM-1590 Rev:1 Mar22", "1 to 365",
             "Minimum password age (days)", $ADpasspolicy.MinPasswordAge.days, "N/A", "N/A", "-", "N/A", "-", "1 or more",
             "Minimum password length (characters)", $ADpasspolicy.MinPasswordLength, "7", "12", "Req. 8.2.3 / 8.3.6", "14", "Control: ISM-0421 Rev:8 Dec21", "14 or more",
             "Password must meet complexity requirements", $ADpasspolicy.ComplexityEnabled, $true, $true, "Req. 8.2.3 / 8.3.6", "N/A", "-", $true,
@@ -7661,7 +7661,7 @@ Function Get-ADRDefaultPasswordPolicy
             }
 
             $ObjValues = @( "Enforce password history (passwords)", $ObjDomain.PwdHistoryLength.value, "4", "4", "Req. 8.2.5 / 8.3.7", "N/A", "-", "24 or more",
-            "Maximum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) /-864000000000), "90", "90", "Req. 8.2.4 / 8.3.9", "N/A", "-", "1 to 365",
+                "Maximum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.maxpwdage.value) / -864000000000), "90", "90", "Req. 8.2.4 / 8.3.9", "365", "ISM-1590 Rev:1 Mar22", "1 to 365",
             "Minimum password age (days)", $($ObjDomain.ConvertLargeIntegerToInt64($ObjDomain.minpwdage.value) /-864000000000), "N/A", "N/A", "-", "N/A", "-", "1 or more",
             "Minimum password length (characters)", $ObjDomain.MinPwdLength.value, "7", "12", "Req. 8.2.3 / 8.3.6", "14", "Control: ISM-0421 Rev:8 Dec21", "14 or more",
             "Password must meet complexity requirements", $ComplexPasswords, $true, $true, "Req. 8.2.3 / 8.3.6", "N/A", "-", $true,
@@ -7688,7 +7688,7 @@ Function Get-ADRDefaultPasswordPolicy
             $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS v4.0" -Value $ObjValues[$i+3]
             $Obj | Add-Member -MemberType NoteProperty -Name "PCI DSS Requirement" -Value $ObjValues[$i+4]
             $Obj | Add-Member -MemberType NoteProperty -Name "ACSC ISM" -Value $ObjValues[$i+5]
-            $Obj | Add-Member -MemberType NoteProperty -Name "ISM Controls 10Mar2022" -Value $ObjValues[$i+6]
+            $Obj | Add-Member -MemberType NoteProperty -Name "ISM Controls 16Jun2022" -Value $ObjValues[$i+6]
             $Obj | Add-Member -MemberType NoteProperty -Name "CIS Benchmark 2022" -Value $ObjValues[$i+7]
             $i += 7
             $ADPassPolObj += $Obj
