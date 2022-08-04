@@ -5516,7 +5516,7 @@ Function Export-ADRExcel
             }
 
             $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,5) , "https://www.pcisecuritystandards.org/document_library?category=pcidss&document=pci_dss", "" , "", "PCI DSS Requirement") | Out-Null
-            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,7) , "https://www.cyber.gov.au/acsc/view-all-content/ism", "" , "", "ISM Controls 10Mar2022") | Out-Null
+            $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1, 7) , "https://www.cyber.gov.au/acsc/view-all-content/ism", "" , "", "ISM Controls 16Jun2022") | Out-Null
             $workbook.Worksheets.Item(1).Hyperlinks.Add($workbook.Worksheets.Item(1).Cells.Item(1,8) , "https://www.cisecurity.org/benchmark/microsoft_windows_server/", "" , "", "CIS Benchmark 2022") | Out-Null
 
             $excel.ScreenUpdating = $true
