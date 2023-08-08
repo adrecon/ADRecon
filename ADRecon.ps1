@@ -12409,19 +12409,22 @@ Function Invoke-ADRecon
                 ))
                 Remove-Variable refFolder
             }
-            If ($CLR -eq "4")
-            {
-                Add-Type -TypeDefinition $($LDAPSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(
-                    ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location
-                    ([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location
-                ))
-            }
             Else
             {
-                Add-Type -TypeDefinition $($LDAPSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(
-                    ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location
-                    ([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location
-                )) -Language CSharpVersion3
+                If ($CLR -eq "4")
+                {
+                    Add-Type -TypeDefinition $($LDAPSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(
+                        ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location
+                        ([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location
+                    ))
+                }
+                Else
+                {
+                    Add-Type -TypeDefinition $($LDAPSource+$PingCastleSMBScannerSource) -ReferencedAssemblies ([System.String[]]@(
+                        ([System.Reflection.Assembly]::LoadWithPartialName("System.DirectoryServices")).Location
+                        ([System.Reflection.Assembly]::LoadWithPartialName("System.XML")).Location
+                    )) -Language CSharpVersion3
+                }
             }
         }
     }
