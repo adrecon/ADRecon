@@ -6295,6 +6295,29 @@ Function Get-ADRDomain
                 Write-Warning "[Get-ADRDomain] Error accessing CN=RID Manager$,CN=System,$($SearchPath),$($objDomain.distinguishedName)"
                 Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             }
+            # Get NetBIOS Name
+            Try 
+            {
+                $domainDN = $objDomain.distinguishedName.ToString()
+                $namingContext = $objDomainRootDSE.Properties["configurationNamingContext"].Value
+                $objSearchPath = New-Object System.DirectoryServices.DirectoryEntry "LDAP://CN=Partitions,$namingContext", $Credential.UserName,$Credential.GetNetworkCredential().Password
+                $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher($objSearchPath,"(&(objectCategory=crossRef)(ncName=$domainDN))")
+                $objSearcherPath.PropertiesToLoad.Add("netbiosname") | Out-Null
+                $objSearcherResult = $objSearcherPath.FindOne()
+                $netBIOSName = $objSearcherResult.Properties["netbiosname"][0]
+                Remove-Variable domainDN
+                Remove-Variable namingContext
+                $objSearchPath.Dispose()
+                $objSearcherPath.Dispose()
+                Remove-Variable objSearchPath
+                Remove-Variable objSearcherPath
+                Remove-Variable objSearcherResult
+            }
+            Catch 
+            {
+                Write-Warning "[Get-ADRDomain] Error finding NetBIOS name while accessing CN=Partitions,$($namingContext)"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            }
             Try
             {
                 $ForestContext = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest",$($ADDomain.Forest),$($Credential.UserName),$($Credential.GetNetworkCredential().password))
@@ -6371,6 +6394,29 @@ Function Get-ADRDomain
                 Write-Warning "[Get-ADRDomain] Error accessing CN=RID Manager$,CN=System,$($SearchPath),$($objDomain.distinguishedName)"
                 Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
             }
+            # Get NetBIOS Name
+            Try 
+            {
+                $domainDN = $objDomain.distinguishedName.ToString()
+                $namingContext = $objDomainRootDSE.Properties["configurationNamingContext"].Value
+                $objSearchPath = ([ADSI]"LDAP://CN=Partitions,$($namingContext)")
+                $objSearcherPath = New-Object System.DirectoryServices.DirectorySearcher($objSearchPath,"(&(objectCategory=crossRef)(ncName=$domainDN))")
+                $objSearcherPath.PropertiesToLoad.Add("netbiosname") | Out-Null
+                $objSearcherResult = $objSearcherPath.FindOne()
+                $netBIOSName = $objSearcherResult.Properties["netbiosname"][0]
+                Remove-Variable domainDN
+                Remove-Variable namingContext
+                $objSearchPath.Dispose()
+                $objSearcherPath.Dispose()
+                Remove-Variable objSearchPath
+                Remove-Variable objSearcherPath
+                Remove-Variable objSearcherResult
+            }
+            Catch 
+            {
+                Write-Warning "[Get-ADRDomain] Error finding NetBIOS name while accessing CN=Partitions,$($namingContext)"
+                Write-Verbose "[EXCEPTION] $($_.Exception.Message)"
+            }
         }
 
         If ($ADDomain)
@@ -6391,7 +6437,7 @@ Function Get-ADRDomain
             $DomainMode = $FLAD[[convert]::ToInt32($objDomainRootDSE.domainFunctionality,10)] + "Domain"
             Remove-Variable FLAD
 
-            $ObjValues = @("Name", $ADDomain.Name, "NetBIOS", $objDomain.dc.value, "Functional Level", $DomainMode, "DomainSID", $ADDomainSID.Value)
+            $ObjValues = @("Name", $ADDomain.Name, "NetBIOS", $netBIOSName, "Functional Level", $DomainMode, "DomainSID", $ADDomainSID.Value)
 
             For ($i = 0; $i -lt $($ObjValues.Count); $i++)
             {
