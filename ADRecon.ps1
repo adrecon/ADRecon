@@ -4318,6 +4318,8 @@ $Header = @"
 th {
 	color:white;
 	background-color:blue;
+	position: sticky;
+	top: 0px;
 }
 td, th {
 	border:0px solid black;
